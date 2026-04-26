@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ucar-postgres
+    environment:
+      POSTGRES_DB: ucar
+      POSTGRES_USER: ucar
+      POSTGRES_PASSWORD: ucar
+    ports:
+      - "5434:5432"
+    volumes:
+      - ucar_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ucar -d ucar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ucar_postgres_data:
