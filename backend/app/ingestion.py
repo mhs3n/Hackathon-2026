@@ -31,11 +31,91 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import AcademicKpi, EsgKpi, FinanceKpi, ImportBatch, Institution
+from .llm_extractor import llm_extract_kpis
+from .models import (
+    AcademicKpi,
+    EsgKpi,
+    FinanceKpi,
+    HrKpi,
+    ImportBatch,
+    InfrastructureKpi,
+    InsertionKpi,
+    Institution,
+    PartnershipKpi,
+    ResearchKpi,
+)
 
 logger = logging.getLogger(__name__)
 
 CURRENT_PERIOD_ID = "rp_2026_s2"
+
+
+# Domain → (Model, id-prefix, defaults for non-null columns, {field: cast-fn}).
+# Used by ``commit_preview`` to upsert any of the 8 UCAR KPI tables.
+DOMAIN_MODELS: dict[str, tuple[type, str, dict[str, Any], dict[str, type]]] = {
+    "academic": (
+        AcademicKpi,
+        "ak",
+        {"success_rate": 0, "attendance_rate": 0, "dropout_rate": 0,
+         "abandonment_rate": 0, "repetition_rate": 0},
+        {"success_rate": float, "attendance_rate": float, "dropout_rate": float,
+         "abandonment_rate": float, "repetition_rate": float},
+    ),
+    "finance": (
+        FinanceKpi,
+        "fk",
+        {"budget_allocated": 0, "budget_consumed": 0, "cost_per_student": 0},
+        {"budget_allocated": float, "budget_consumed": float, "cost_per_student": float},
+    ),
+    "esg": (
+        EsgKpi,
+        "ek",
+        {"energy_consumption_index": 0, "carbon_footprint_index": 0,
+         "recycling_rate": 0, "mobility_index": 0},
+        {"energy_consumption_index": float, "carbon_footprint_index": float,
+         "recycling_rate": float, "mobility_index": float},
+    ),
+    "hr": (
+        HrKpi,
+        "hk",
+        {"teaching_headcount": 0, "admin_headcount": 0, "absenteeism_rate": 0,
+         "training_completed_pct": 0, "teaching_load_hours": 0, "team_stability_index": 0},
+        {"teaching_headcount": int, "admin_headcount": int, "absenteeism_rate": float,
+         "training_completed_pct": float, "teaching_load_hours": float, "team_stability_index": float},
+    ),
+    "research": (
+        ResearchKpi,
+        "rk",
+        {"publications_count": 0, "active_projects": 0, "funding_secured_tnd": 0,
+         "academic_partnerships": 0, "patents_filed": 0},
+        {"publications_count": int, "active_projects": int, "funding_secured_tnd": float,
+         "academic_partnerships": int, "patents_filed": int},
+    ),
+    "infrastructure": (
+        InfrastructureKpi,
+        "ik",
+        {"classroom_occupancy_pct": 0, "equipment_availability_pct": 0,
+         "it_equipment_status": 0, "ongoing_projects_count": 0, "maintenance_backlog_days": 0},
+        {"classroom_occupancy_pct": float, "equipment_availability_pct": float,
+         "it_equipment_status": float, "ongoing_projects_count": int, "maintenance_backlog_days": int},
+    ),
+    "partnership": (
+        PartnershipKpi,
+        "pk",
+        {"active_agreements_count": 0, "student_mobility_incoming": 0,
+         "student_mobility_outgoing": 0, "international_projects": 0, "academic_networks_count": 0},
+        {"active_agreements_count": int, "student_mobility_incoming": int,
+         "student_mobility_outgoing": int, "international_projects": int, "academic_networks_count": int},
+    ),
+    "insertion": (
+        InsertionKpi,
+        "nk",
+        {"national_convention_rate": 0, "international_convention_rate": 0,
+         "employability_rate": 0, "insertion_delay_months": 0},
+        {"national_convention_rate": float, "international_convention_rate": float,
+         "employability_rate": float, "insertion_delay_months": float},
+    ),
+}
 
 
 def _now_iso() -> str:
@@ -383,28 +463,31 @@ def run_preview(file_path: str, file_name: str, institution: Institution) -> Ing
     ftype = detect_file_type(file_path)
     warnings: list[str] = []
     raw_kpis: dict[str, float | None] = {k: None for k in KPI_PATTERNS}
+    extracted_text: str = ""  # Plain-text view of the document for the LLM layer.
 
     try:
         if ftype == "pdf_digital":
-            text = extract_from_pdf(file_path)
-            raw_kpis = extract_kpis_regex(text)
+            extracted_text = extract_from_pdf(file_path)
+            raw_kpis = extract_kpis_regex(extracted_text)
         elif ftype == "pdf_scanned":
-            text = extract_from_scanned_pdf(file_path)
-            raw_kpis = extract_kpis_regex(text)
+            extracted_text = extract_from_scanned_pdf(file_path)
+            raw_kpis = extract_kpis_regex(extracted_text)
         elif ftype == "image":
-            text = extract_from_image(file_path)
-            raw_kpis = extract_kpis_regex(text)
+            extracted_text = extract_from_image(file_path)
+            raw_kpis = extract_kpis_regex(extracted_text)
         elif ftype == "excel":
             df = extract_from_excel(file_path)
+            extracted_text = df.to_string(index=False)
             raw_kpis = extract_kpis_dataframe(df)
             # If aggregation produced nothing, fall back to text-style scanning of cell values
             if all(v is None for v in raw_kpis.values()):
-                raw_kpis = extract_kpis_regex(df.to_string(index=False))
+                raw_kpis = extract_kpis_regex(extracted_text)
         elif ftype == "csv":
             df = extract_from_csv(file_path)
+            extracted_text = df.to_string(index=False)
             raw_kpis = extract_kpis_dataframe(df)
             if all(v is None for v in raw_kpis.values()):
-                raw_kpis = extract_kpis_regex(df.to_string(index=False))
+                raw_kpis = extract_kpis_regex(extracted_text)
         else:
             warnings.append(f"Unsupported file type: {ftype}")
     except RuntimeError as exc:
@@ -416,8 +499,34 @@ def run_preview(file_path: str, file_name: str, institution: Institution) -> Ing
     mapped = map_to_ucar_kpis(raw_kpis)
     alerts = check_alerts(raw_kpis)
 
-    if all(not v for v in mapped.values()):
-        warnings.append("No KPIs could be extracted. Check that the document includes labeled values like 'Taux de réussite : 75%'.")
+    # ---- LLM layer: identify + classify KPIs across all 8 UCAR tables.
+    # The LLM augments the regex output: any field it returns wins (it sees the
+    # full document context); any field it misses falls back to regex.
+    if extracted_text.strip():
+        try:
+            llm_mapped = llm_extract_kpis(extracted_text)
+            if llm_mapped:
+                for domain, fields in llm_mapped.items():
+                    mapped.setdefault(domain, {}).update(fields)
+            else:
+                # Empty result is fine when the key is missing; only flag if the
+                # regex layer ALSO produced nothing useful.
+                if all(not v for v in mapped.values()):
+                    warnings.append(
+                        "LLM layer produced no values (check UCAR_GEMINI_API_KEY)."
+                    )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("LLM extraction failed")
+            warnings.append(f"LLM layer skipped: {exc}")
+
+    # Drop empty per-domain dicts to keep the preview tidy.
+    mapped = {dom: fields for dom, fields in mapped.items() if fields}
+
+    if not mapped:
+        warnings.append(
+            "No KPIs could be extracted. Check that the document includes "
+            "labeled values like 'Taux de r\u00e9ussite : 75%'."
+        )
 
     return IngestionPreview(
         institution_id=institution.id,
@@ -452,71 +561,41 @@ def commit_preview(
         raise ValueError(f"Unknown institution_id: {institution_id}")
 
     now = _now_iso()
-    written: dict[str, list[str]] = {"academic": [], "finance": [], "esg": []}
+    written: dict[str, list[str]] = {dom: [] for dom in DOMAIN_MODELS}
 
-    if mapped.get("academic"):
+    for domain, values in mapped.items():
+        if not values:
+            continue
+        spec = DOMAIN_MODELS.get(domain)
+        if spec is None:
+            continue  # Unknown domain coming from the LLM — skip safely.
+        Model, prefix, defaults, casts = spec
+
         row = db.execute(
-            select(AcademicKpi).where(
-                AcademicKpi.institution_id == institution_id,
-                AcademicKpi.reporting_period_id == period_id,
+            select(Model).where(
+                Model.institution_id == institution_id,
+                Model.reporting_period_id == period_id,
             )
         ).scalar_one_or_none()
         if not row:
-            row = AcademicKpi(
-                id=f"ak_{institution_id}_{period_id}",
+            row = Model(
+                id=f"{prefix}_{institution_id}_{period_id}",
                 institution_id=institution_id,
                 reporting_period_id=period_id,
-                success_rate=0, attendance_rate=0, dropout_rate=0,
-                abandonment_rate=0, repetition_rate=0,
-                created_at=now, updated_at=now,
+                created_at=now,
+                updated_at=now,
+                **defaults,
             )
             db.add(row)
-        for k, v in mapped["academic"].items():
-            setattr(row, k, v)
-            written["academic"].append(k)
-        row.updated_at = now
-
-    if mapped.get("finance"):
-        row = db.execute(
-            select(FinanceKpi).where(
-                FinanceKpi.institution_id == institution_id,
-                FinanceKpi.reporting_period_id == period_id,
-            )
-        ).scalar_one_or_none()
-        if not row:
-            row = FinanceKpi(
-                id=f"fk_{institution_id}_{period_id}",
-                institution_id=institution_id,
-                reporting_period_id=period_id,
-                budget_allocated=0, budget_consumed=0, cost_per_student=0,
-                created_at=now, updated_at=now,
-            )
-            db.add(row)
-        for k, v in mapped["finance"].items():
-            setattr(row, k, v)
-            written["finance"].append(k)
-        row.updated_at = now
-
-    if mapped.get("esg"):
-        row = db.execute(
-            select(EsgKpi).where(
-                EsgKpi.institution_id == institution_id,
-                EsgKpi.reporting_period_id == period_id,
-            )
-        ).scalar_one_or_none()
-        if not row:
-            row = EsgKpi(
-                id=f"ek_{institution_id}_{period_id}",
-                institution_id=institution_id,
-                reporting_period_id=period_id,
-                energy_consumption_index=0, carbon_footprint_index=0,
-                recycling_rate=0, mobility_index=0,
-                created_at=now, updated_at=now,
-            )
-            db.add(row)
-        for k, v in mapped["esg"].items():
-            setattr(row, k, v)
-            written["esg"].append(k)
+        for k, v in values.items():
+            if k not in casts:
+                continue
+            try:
+                cast_value = casts[k](v)
+            except (TypeError, ValueError):
+                continue
+            setattr(row, k, cast_value)
+            written[domain].append(k)
         row.updated_at = now
 
     # Audit trail

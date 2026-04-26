@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:4173,http://127.0.0.1:4173"
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
-    gemini_api_key: str = "AIzaSyChTNIvoEmdOsbsn8Rtb0BXe-4OZzXjAw4"
+    gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash-lite"
 
     def cors_origin_list(self) -> list[str]:

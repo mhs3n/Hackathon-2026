@@ -195,22 +195,39 @@ It currently implements:
 
 This is the first implementation slice of the curation strategy documented in [ZENVEO_CURATION_PLAN.md](/home/rayen/work/Hackathon-2026/ZENVEO_CURATION_PLAN.md).
 
-### Run The Shell
+### Dev Setup
+
+**Backend:**
 
 ```bash
+cd backend
+cp .env.example .env        # then fill in UCAR_JWT_SECRET and UCAR_GEMINI_API_KEY
+python -m venv ../.venv
+source ../.venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8001
+```
+
+**Frontend:**
+
+```bash
+cd frontend
+cp .env.example .env        # sets VITE_API_BASE_URL=http://localhost:8001
 npm install
 npm run dev
 ```
 
-Then open:
+Then open `http://localhost:5173` (or the port Vite prints).
 
-- `http://localhost:4173`
+### Demo Accounts
 
-Use the login screen to enter as:
+Password for all accounts: `123456`
 
-- `UCAR Admin`
-- `Institution Admin`
-- `Student`
+| Email | Role |
+|---|---|
+| `owner@ucar.tn` | UCAR Admin |
+| `insat@ucar.tn` | Institution Admin |
+| `takwa.bouheni@enstab.ucar.tn` | Student |
 
 ## Next Step
 
