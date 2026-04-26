@@ -79,6 +79,15 @@ export type StudentSnapshot = {
   riskExplanation: string;
   recommendations: string[];
   aiAssessment?: AiAssessment | null;
+  studentCode?: string | null;
+  programName?: string | null;
+  levelLabel?: string | null;
+  institutionId?: string | null;
+  institutionShortName?: string | null;
+  institutionRegion?: string | null;
+  universityName?: string | null;
+  universityShortName?: string | null;
+  academicYear?: string | null;
 };
 
 export type AppUserRecord = {

@@ -1,4 +1,10 @@
-export function PeriodBadge({ label = "S2 2026", history = 4 }: { label?: string; history?: number }) {
+import { usePeriod } from "../../period/PeriodContext";
+
+export function PeriodBadge({ label, history }: { label?: string; history?: number } = {}) {
+  const { periods, periodId } = usePeriod();
+  const active = periods.find((p) => p.id === periodId);
+  const resolvedLabel = label ?? active?.label ?? "Current period";
+  const resolvedHistory = history ?? Math.max(periods.length - 1, 0);
   return (
     <span
       style={{
@@ -24,9 +30,9 @@ export function PeriodBadge({ label = "S2 2026", history = 4 }: { label?: string
           display: "inline-block",
         }}
       />
-      Reporting period · {label}
+      Reporting period · {resolvedLabel}
       <span style={{ fontWeight: 400, color: "var(--muted)", textTransform: "none", letterSpacing: 0 }}>
-        ({history} historical periods on record)
+        ({resolvedHistory} historical periods on record)
       </span>
     </span>
   );

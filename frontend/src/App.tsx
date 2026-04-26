@@ -11,6 +11,14 @@ import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { StudentDashboard } from "./pages/StudentDashboard";
+import { AcademicRecordPage } from "./pages/student/AcademicRecordPage";
+import { AiGuidancePage } from "./pages/student/AiGuidancePage";
+import { RegistrationCertificatePage } from "./pages/student/RegistrationCertificatePage";
+import { StudentAcademicKpiPage } from "./pages/student/kpi/StudentAcademicKpiPage";
+import { StudentAttendanceKpiPage } from "./pages/student/kpi/StudentAttendanceKpiPage";
+import { StudentEngagementKpiPage } from "./pages/student/kpi/StudentEngagementKpiPage";
+import { StudentSkillsKpiPage } from "./pages/student/kpi/StudentSkillsKpiPage";
+import { StudentWellnessKpiPage } from "./pages/student/kpi/StudentWellnessKpiPage";
 import { UcarAdminDashboard } from "./pages/UcarAdminDashboard";
 import { AcademicKpiPage } from "./pages/kpi/AcademicKpiPage";
 import { FinanceKpiPage } from "./pages/kpi/FinanceKpiPage";
@@ -148,38 +156,40 @@ export default function App() {
               <AppShell
                 items={[
                   { to: "/student/dashboard", label: "Student Dashboard", icon: "dashboard" },
-                  { to: "/student/academic-record", label: "Academic Record", icon: "record", future: true },
-                  { to: "/student/ai-guidance", label: "AI Guidance", icon: "guidance", future: true },
+                  { to: "/student/academic-record", label: "Academic Record", icon: "record" },
+                  {
+                    label: "KPI Monitoring",
+                    icon: "monitoring",
+                    children: [
+                      { to: "/student/kpi/academic", label: "Academic", icon: "academic" },
+                      { to: "/student/kpi/attendance", label: "Attendance", icon: "kpi" },
+                      { to: "/student/kpi/engagement", label: "Engagement", icon: "kpi" },
+                      { to: "/student/kpi/wellness", label: "Wellness", icon: "kpi" },
+                      { to: "/student/kpi/skills", label: "Skills & Career", icon: "kpi" },
+                    ],
+                  },
+                  { to: "/student/ai-guidance", label: "AI Guidance", icon: "guidance" },
+                  { to: "/student/certificate", label: "Registration Certificate", icon: "record" },
+                  { to: "/student/report", label: "Generate My Report", icon: "reports" },
                 ]}
               />
             }
           >
             <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="academic-record" element={<AcademicRecordPage />} />
+            <Route path="kpi/academic" element={<StudentAcademicKpiPage />} />
+            <Route path="kpi/attendance" element={<StudentAttendanceKpiPage />} />
+            <Route path="kpi/engagement" element={<StudentEngagementKpiPage />} />
+            <Route path="kpi/wellness" element={<StudentWellnessKpiPage />} />
+            <Route path="kpi/skills" element={<StudentSkillsKpiPage />} />
+            <Route path="ai-guidance" element={<AiGuidancePage />} />
+            <Route path="certificate" element={<RegistrationCertificatePage />} />
             <Route
-              path="academic-record"
+              path="report"
               element={
-                <FutureModulePage
-                  title="Academic Record"
-                  description="Detailed view for grades, modules, attendance history, and academic progression."
-                  bullets={[
-                    "Per-module grades and trends.",
-                    "Attendance history by course and activity.",
-                    "Semester-level academic progress summary.",
-                  ]}
-                />
-              }
-            />
-            <Route
-              path="ai-guidance"
-              element={
-                <FutureModulePage
-                  title="AI Guidance"
-                  description="Personalized explainable guidance based on attendance, grades, and predicted risk."
-                  bullets={[
-                    "Explain the factors affecting the student risk score.",
-                    "Provide actionable recovery recommendations.",
-                    "Track whether guidance improved outcomes over time.",
-                  ]}
+                <ReportsPage
+                  title="Generate My Report"
+                  description="Export a personal performance report covering grades, attendance, engagement, wellness, and AI guidance."
                 />
               }
             />

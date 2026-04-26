@@ -565,6 +565,18 @@ def get_student_dashboard(db: Session, student_profile_id: str, current_user: Ap
         attendance=metric.attendance_rate,
     )
 
+    university = db.execute(
+        select(University).where(University.id == institution.university_id),
+    ).scalar_one_or_none()
+
+    period = db.execute(
+        select(ReportingPeriod).where(ReportingPeriod.id == metric.reporting_period_id),
+    ).scalar_one_or_none()
+    if period is not None:
+        academic_year = f"{period.year}-{period.year + 1}" if period.semester == "S1" else f"{period.year - 1}-{period.year}"
+    else:
+        academic_year = None
+
     return StudentSnapshot(
         studentName=profile.full_name,
         institutionName=institution.name,
@@ -574,6 +586,15 @@ def get_student_dashboard(db: Session, student_profile_id: str, current_user: Ap
         riskExplanation=student_risk.summary or alert.explanation,
         recommendations=[item.recommendation_text for item in actions],
         aiAssessment=_risk_to_assessment(student_risk),
+        studentCode=profile.student_code,
+        programName=profile.program_name,
+        levelLabel=profile.level_label,
+        institutionId=institution.id,
+        institutionShortName=institution.short_name,
+        institutionRegion=institution.region,
+        universityName=university.name if university else None,
+        universityShortName=university.short_name if university else None,
+        academicYear=academic_year,
     )
 
 

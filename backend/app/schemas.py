@@ -247,6 +247,16 @@ class StudentSnapshot(BaseModel):
     riskExplanation: str
     recommendations: list[str]
     aiAssessment: AiAssessment | None = None
+    # Profile / registration details
+    studentCode: str | None = None
+    programName: str | None = None
+    levelLabel: str | None = None
+    institutionId: str | None = None
+    institutionShortName: str | None = None
+    institutionRegion: str | None = None
+    universityName: str | None = None
+    universityShortName: str | None = None
+    academicYear: str | None = None
 
 
 class HrKpiRecord(BaseModel):
