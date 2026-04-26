@@ -1,28 +1,18 @@
-import { useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
-import { roleLabels } from "../data/mockData";
+import { Button } from "../components/ui/Button";
+import { Field, TextInput } from "../components/ui/FormControls";
 import { getHomePath } from "../routes/guards";
-import type { UserRole } from "../types";
 
-const roleOptions: UserRole[] = ["ucar_admin", "institution_admin", "student"];
+const demoPassword = "123456";
 
 export function LoginPage() {
   const { user, login, isAuthenticating, authError } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const from = useMemo(() => {
-    if (location.state && typeof location.state === "object" && "from" in location.state) {
-      const candidate = location.state.from;
-      if (typeof candidate === "string") {
-        return candidate;
-      }
-    }
-    return null;
-  }, [location.state]);
+  const [email, setEmail] = useState("owner@ucar.tn");
+  const [password, setPassword] = useState(demoPassword);
 
   useEffect(() => {
     if (!user) {
@@ -31,89 +21,165 @@ export function LoginPage() {
     navigate(getHomePath(user.role), { replace: true });
   }, [navigate, user]);
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const loggedInUser = await login(email, password);
+      navigate(getHomePath(loggedInUser.role), { replace: true });
+    } catch {
+      // error is rendered through authError
+    }
+  }
+
   return (
-    <div className="public-page">
-      <header className="site-header">
-        <div className="site-header__inner">
-          <Link className="site-brand" to="/">
-            <img className="site-brand__logo" src="/assets/ucar-logo.png" alt="University of Carthage logo" />
-            <div>
-              <span className="site-brand__eyebrow">University of Carthage</span>
+    <div className="ucar-page">
+      <div className="ucar-topbar">
+        <div className="ucar-topbar__inner">
+          <span>Avenue de la République, BP 77 — 1054 Amilcar, Tunisia</span>
+          <div className="ucar-topbar__links">
+            <a href="#contact">Contact</a>
+            <a href="https://ucar.rnu.tn" target="_blank" rel="noreferrer">
+              ucar.rnu.tn
+            </a>
+            <Link to="/login">Login</Link>
+          </div>
+        </div>
+      </div>
+
+      <header className="ucar-header">
+        <div className="ucar-header__inner">
+          <Link className="ucar-brand" to="/">
+            <img src="/assets/ucar-logo.png" alt="University of Carthage" />
+            <div className="ucar-brand__text">
+              <strong>University of Carthage</strong>
+              <span>Université de Carthage</span>
             </div>
           </Link>
-
-          <nav className="site-header__nav">
-            <Link to="/">Back to landing</Link>
+          <nav className="ucar-nav">
+            <a href="#about">About</a>
+            <a href="#programs">Programs</a>
+            <a href="#research">Research</a>
+            <a href="#news">News</a>
+            <a href="#institutions">Institutions</a>
+            <a href="#contact">Contact</a>
+            <Link className="ucar-nav__cta" to="/login">
+              Open Platform
+            </Link>
           </nav>
         </div>
       </header>
 
-      <main className="login-page login-page--light">
-        <div className="login-page__hero login-page__hero--light">
-          <div className="login-hero__brand">
-            <img className="login-hero__logo" src="/assets/ucar-logo.png" alt="University of Carthage logo" />
-            <div>
-              <span className="shell__eyebrow">University of Carthage</span>
-              <div className="login-hero__subbrand">Platform Access</div>
-            </div>
+      <main>
+        <section className="landing-hero">
+          <div className="landing-hero__copy">
+            <span className="ucar-eyebrow">University of Carthage</span>
+            <h1>Sign in to UCAR Insight.</h1>
+            <p>Use one of the seeded UCAR accounts to enter the workspace.</p>
           </div>
-          <h1>Login to the prototype workspace.</h1>
-          <p>
-            This page is intentionally separate from the public landing page. Choose a demo role to inspect
-            the UCAR admin, institution admin, or student experience.
-          </p>
-          <div className="login-page__points">
-            <span>White-first product surfaces</span>
-            <span>UCAR branding with blue accents</span>
-            <span>Role-based workspaces</span>
-          </div>
-        </div>
 
-        <div className="login-card login-card--light">
-          <div>
-            <span className="shell__eyebrow">Demo Access</span>
-            <h2>Login by role</h2>
-            <p>Select the role path you want to test in the curated shell.</p>
-            {from ? <p className="login-card__hint">You were redirected from: {from}</p> : null}
+          <div className="landing-preview__panel login-panel">
+            <h2>Enter your credentials</h2>
+
             {authError ? <p className="login-card__hint">{authError}</p> : null}
-          </div>
 
-          <div className="login-card__actions">
-            {roleOptions.map((role) => (
-              <button
-                key={role}
-                type="button"
-                className="role-button role-button--light"
-                onClick={async () => {
-                  try {
-                    await login(role);
-                    navigate(getHomePath(role), { replace: true });
-                  } catch {
-                    // error is rendered through authError
-                  }
-                }}
-                disabled={isAuthenticating}
-              >
-                <strong>{roleLabels[role]}</strong>
-                <span>
-                  {role === "ucar_admin"
-                    ? "Global oversight across all institutions"
-                    : role === "institution_admin"
-                      ? "Local KPIs, risk list, and reporting"
-                      : "Grades, attendance, and AI recommendations"}
-                </span>
-              </button>
-            ))}
+            <form className="login-form" onSubmit={handleSubmit}>
+              <Field label="Email">
+                <TextInput
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="owner@ucar.tn"
+                  required
+                />
+              </Field>
+              <Field label="Password">
+                <TextInput
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  placeholder="123456"
+                  required
+                />
+              </Field>
+              <Button type="submit" disabled={isAuthenticating}>
+                {isAuthenticating ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
           </div>
-        </div>
+        </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="site-footer__inner">
+      <footer className="ucar-footer">
+        <div className="ucar-container ucar-footer__grid">
           <div>
-            <strong>University of Carthage</strong>
-            <p>Dedicated login flow for the prototype role-based dashboards.</p>
+            <div className="ucar-brand ucar-brand--footer">
+              <img src="/assets/ucar-logo.png" alt="University of Carthage" />
+              <div className="ucar-brand__text">
+                <strong>University of Carthage</strong>
+                <span>Université de Carthage</span>
+              </div>
+            </div>
+            <p className="ucar-footer__about">
+              Established in 1988, UCAR is a Tunisian public institution dedicated to education and research,
+              operating under the supervision of the Ministry of Higher Education and Scientific Research.
+            </p>
           </div>
+          <div>
+            <h4>Useful Links</h4>
+            <ul className="ucar-footer__links">
+              <li>
+                <a href="#about">Alumni</a>
+              </li>
+              <li>
+                <a href="#about">Pro emploi</a>
+              </li>
+              <li>
+                <a href="#about">PMO</a>
+              </li>
+              <li>
+                <a href="#about">Admission</a>
+              </li>
+              <li>
+                <a href="#about">Projects</a>
+              </li>
+              <li>
+                <a href="#about">Job alerts</a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4>Platform</h4>
+            <ul className="ucar-footer__links">
+              <li>
+                <Link to="/login">Login</Link>
+              </li>
+              <li>
+                <a href="#news">News &amp; Events</a>
+              </li>
+              <li>
+                <a href="#institutions">Institutions</a>
+              </li>
+              <li>
+                <a href="#contact">Contact</a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact</h4>
+            <address className="ucar-footer__contact">
+              Avenue de la République
+              <br />
+              BP 77 — 1054 Amilcar
+              <br />
+              Tunisia
+            </address>
+          </div>
+        </div>
+        <div className="ucar-footer__bottom">
+          <span>©2026 University of Carthage. All Rights Reserved.</span>
+          <span>AI · Data · Governance</span>
         </div>
       </footer>
     </div>

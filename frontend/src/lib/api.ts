@@ -4,6 +4,7 @@ import type {
   KpiHistoryResponse,
   StudentDashboardView,
   UcarDashboardView,
+  UcarReportResponse,
 } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -64,10 +65,10 @@ export function clearStoredAuth() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
-export async function loginByRole(role: AuthLoginResponse["user"]["role"]) {
+export async function loginWithCredentials(email: string, password: string) {
   return request<AuthLoginResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ role }),
+    body: JSON.stringify({ email, password }),
   });
 }
 
@@ -192,4 +193,21 @@ export async function fetchPeriods(): Promise<ReportingPeriod[]> {
 export async function fetchImportHistory(institutionId?: string): Promise<ImportBatch[]> {
   const qs = institutionId ? `?institution_id=${encodeURIComponent(institutionId)}` : "";
   return request<ImportBatch[]>(`/import/history${qs}`, { headers: authHeaders() });
+}
+
+export async function fetchUcarReport(params: {
+  startPeriodId: string;
+  endPeriodId: string;
+  institutionIds?: string[];
+}): Promise<UcarReportResponse> {
+  const search = new URLSearchParams({
+    start_period_id: params.startPeriodId,
+    end_period_id: params.endPeriodId,
+  });
+  for (const id of params.institutionIds ?? []) {
+    search.append("institution_ids", id);
+  }
+  return request<UcarReportResponse>(`/reports/ucar?${search.toString()}`, {
+    headers: authHeaders(),
+  });
 }

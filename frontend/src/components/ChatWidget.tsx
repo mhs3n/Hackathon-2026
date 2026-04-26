@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { fetchQuickActions, sendChat, type ChatMessage } from "../lib/api";
+import { Button } from "./ui/Button";
+import { TextInput } from "./ui/FormControls";
 
 const COLORS = {
   brand: "#1d5394",
@@ -102,7 +104,7 @@ export function ChatWidget() {
             zIndex: 1000,
           }}
         >
-          💬
+          AI
         </button>
       )}
 
@@ -187,16 +189,7 @@ export function ChatWidget() {
                         <button
                           key={q}
                           onClick={() => send(q)}
-                          style={{
-                            border: `1px solid ${COLORS.border}`,
-                            background: "white",
-                            color: COLORS.brandDark,
-                            padding: "6px 10px",
-                            borderRadius: 16,
-                            fontSize: 12,
-                            cursor: "pointer",
-                            textAlign: "left",
-                          }}
+                          className="chat-quick-action"
                         >
                           {q}
                         </button>
@@ -263,37 +256,20 @@ export function ChatWidget() {
               background: "white",
             }}
           >
-            <input
+            <TextInput
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question…"
+              placeholder="Ask a question..."
               disabled={status === "loading"}
-              style={{
-                flex: 1,
-                padding: "10px 12px",
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 10,
-                fontSize: 13.5,
-                outline: "none",
-              }}
+              className="chat-input"
             />
-            <button
+            <Button
               type="submit"
               disabled={status === "loading" || !input.trim()}
-              style={{
-                background: COLORS.brand,
-                color: "white",
-                border: "none",
-                borderRadius: 10,
-                padding: "0 14px",
-                cursor: status === "loading" ? "not-allowed" : "pointer",
-                fontWeight: 600,
-                fontSize: 13,
-                opacity: status === "loading" || !input.trim() ? 0.6 : 1,
-              }}
+              className="chat-send"
             >
               Send
-            </button>
+            </Button>
           </form>
         </div>
       )}

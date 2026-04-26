@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -42,6 +44,10 @@ from .schemas import (
     StudentRisk,
     StudentSnapshot,
     UcarDashboardView,
+    UcarReportFilters,
+    UcarReportResponse,
+    UcarReportRow,
+    UcarReportSummary,
 )
 from .ai import (
     Anomaly,
@@ -687,3 +693,189 @@ def get_kpi_history(
         "series": series,
     }
 
+
+# -----------------------
+# UCAR report generation
+# -----------------------
+
+REPORT_MODELS = (
+    AcademicKpi,
+    InsertionKpi,
+    FinanceKpi,
+    HrKpi,
+    ResearchKpi,
+    InfrastructureKpi,
+    PartnershipKpi,
+    EsgKpi,
+)
+
+
+def _map_by_institution_period(rows) -> dict[tuple[str, str], object]:
+    return {(row.institution_id, row.reporting_period_id): row for row in rows}
+
+
+def _period_range(db: Session, start_period_id: str, end_period_id: str) -> list[ReportingPeriod]:
+    periods = db.execute(
+        select(ReportingPeriod).order_by(ReportingPeriod.starts_on.asc())
+    ).scalars().all()
+    by_id = {period.id: period for period in periods}
+    start = by_id.get(start_period_id)
+    end = by_id.get(end_period_id)
+    if not start or not end:
+        raise HTTPException(status_code=400, detail="Unknown reporting period in selected range")
+    if start.starts_on > end.starts_on:
+        raise HTTPException(status_code=400, detail="Start period must be before end period")
+    return [
+        period
+        for period in periods
+        if start.starts_on <= period.starts_on <= end.starts_on
+    ]
+
+
+def get_ucar_report(
+    db: Session,
+    *,
+    start_period_id: str,
+    end_period_id: str,
+    institution_ids: list[str] | None = None,
+) -> UcarReportResponse:
+    periods = _period_range(db, start_period_id, end_period_id)
+    period_ids = [period.id for period in periods]
+
+    institution_stmt = select(Institution).order_by(Institution.short_name.asc())
+    if institution_ids:
+        institution_stmt = institution_stmt.where(Institution.id.in_(institution_ids))
+    institutions = db.execute(institution_stmt).scalars().all()
+    if not institutions:
+        raise HTTPException(status_code=400, detail="No institutions match the report selection")
+
+    selected_ids = [institution.id for institution in institutions]
+    if institution_ids:
+        found_ids = set(selected_ids)
+        missing = [iid for iid in institution_ids if iid not in found_ids]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Unknown institution ids: {', '.join(missing)}")
+
+    model_maps = {}
+    for model in REPORT_MODELS:
+        model_maps[model] = _map_by_institution_period(
+            db.execute(
+                select(model).where(
+                    model.institution_id.in_(selected_ids),
+                    model.reporting_period_id.in_(period_ids),
+                )
+            ).scalars().all()
+        )
+
+    period_by_id = {period.id: period for period in periods}
+    rows: list[UcarReportRow] = []
+    high_risk_count = 0
+    success_values: list[float] = []
+    budget_usage_values: list[float] = []
+    total_budget_allocated = 0.0
+    total_budget_consumed = 0.0
+
+    for institution in institutions:
+        for period_id in period_ids:
+            key = (institution.id, period_id)
+            academic = model_maps[AcademicKpi].get(key)
+            insertion = model_maps[InsertionKpi].get(key)
+            finance = model_maps[FinanceKpi].get(key)
+            hr = model_maps[HrKpi].get(key)
+            research = model_maps[ResearchKpi].get(key)
+            infrastructure = model_maps[InfrastructureKpi].get(key)
+            partnership = model_maps[PartnershipKpi].get(key)
+            esg = model_maps[EsgKpi].get(key)
+
+            budget_usage = None
+            if finance and finance.budget_allocated > 0:
+                budget_usage = round(finance.budget_consumed / finance.budget_allocated * 100.0, 2)
+                budget_usage_values.append(budget_usage)
+                total_budget_allocated += finance.budget_allocated
+                total_budget_consumed += finance.budget_consumed
+
+            risk_score = None
+            risk_level = None
+            risk_summary = None
+            if academic and insertion and finance:
+                risk = compute_institution_risk(
+                    success_rate=academic.success_rate,
+                    attendance_rate=academic.attendance_rate,
+                    dropout_rate=academic.dropout_rate,
+                    abandonment_rate=academic.abandonment_rate,
+                    employability_rate=insertion.employability_rate,
+                    budget_allocated=finance.budget_allocated,
+                    budget_consumed=finance.budget_consumed,
+                    absenteeism_rate=hr.absenteeism_rate if hr else None,
+                    team_stability_index=hr.team_stability_index if hr else None,
+                    maintenance_backlog_days=infrastructure.maintenance_backlog_days if infrastructure else None,
+                )
+                risk_score = risk.score
+                risk_level = risk.level
+                risk_summary = risk.summary
+                if risk.level == "High":
+                    high_risk_count += 1
+
+            if academic:
+                success_values.append(academic.success_rate)
+
+            period = period_by_id[period_id]
+            rows.append(
+                UcarReportRow(
+                    institutionId=institution.id,
+                    institutionShortName=institution.short_name,
+                    institutionName=institution.name,
+                    region=institution.region,
+                    periodId=period.id,
+                    periodLabel=period.label,
+                    successRate=academic.success_rate if academic else None,
+                    attendanceRate=academic.attendance_rate if academic else None,
+                    repetitionRate=academic.repetition_rate if academic else None,
+                    dropoutRate=academic.dropout_rate if academic else None,
+                    abandonmentRate=academic.abandonment_rate if academic else None,
+                    employabilityRate=insertion.employability_rate if insertion else None,
+                    insertionDelayMonths=insertion.insertion_delay_months if insertion else None,
+                    budgetAllocated=finance.budget_allocated if finance else None,
+                    budgetConsumed=finance.budget_consumed if finance else None,
+                    budgetUsage=budget_usage,
+                    costPerStudent=finance.cost_per_student if finance else None,
+                    teachingHeadcount=hr.teaching_headcount if hr else None,
+                    adminHeadcount=hr.admin_headcount if hr else None,
+                    absenteeismRate=hr.absenteeism_rate if hr else None,
+                    publicationsCount=research.publications_count if research else None,
+                    activeProjects=research.active_projects if research else None,
+                    fundingSecuredTnd=research.funding_secured_tnd if research else None,
+                    classroomOccupancyPct=infrastructure.classroom_occupancy_pct if infrastructure else None,
+                    equipmentAvailabilityPct=infrastructure.equipment_availability_pct if infrastructure else None,
+                    activeAgreementsCount=partnership.active_agreements_count if partnership else None,
+                    studentMobilityIncoming=partnership.student_mobility_incoming if partnership else None,
+                    studentMobilityOutgoing=partnership.student_mobility_outgoing if partnership else None,
+                    energyConsumptionIndex=esg.energy_consumption_index if esg else None,
+                    carbonFootprintIndex=esg.carbon_footprint_index if esg else None,
+                    recyclingRate=esg.recycling_rate if esg else None,
+                    mobilityIndex=esg.mobility_index if esg else None,
+                    riskScore=risk_score,
+                    riskLevel=risk_level,
+                    riskSummary=risk_summary,
+                )
+            )
+
+    return UcarReportResponse(
+        generatedAt=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        filters=UcarReportFilters(
+            startPeriodId=start_period_id,
+            endPeriodId=end_period_id,
+            institutionIds=selected_ids,
+        ),
+        summary=UcarReportSummary(
+            institutionCount=len(institutions),
+            periodCount=len(periods),
+            rowCount=len(rows),
+            academicAverage=round(sum(success_values) / len(success_values), 2) if success_values else None,
+            budgetUsageAverage=round(sum(budget_usage_values) / len(budget_usage_values), 2) if budget_usage_values else None,
+            highRiskCount=high_risk_count,
+            totalBudgetAllocated=round(total_budget_allocated, 2),
+            totalBudgetConsumed=round(total_budget_consumed, 2),
+        ),
+        rows=rows,
+    )

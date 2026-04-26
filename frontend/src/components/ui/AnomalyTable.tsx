@@ -1,6 +1,7 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import type { Institution, RiskAlertRecord } from "../../types";
+import { Field, SelectInput, TextInput } from "./FormControls";
 
 const SEVERITY_STYLE: Record<RiskAlertRecord["severity"], { color: string; bg: string; label: string }> = {
   high: { color: "#e85d6c", bg: "#fdecee", label: "High" },
@@ -22,7 +23,7 @@ function formatValue(metric: string, value: number): string {
   return value.toFixed(1);
 }
 
-type SortKey = "severity" | "institution" | "metric" | "z";
+type SortKey = "severity" | "institution" | "metric";
 
 export function AnomalyTable({
   alerts,
@@ -36,14 +37,47 @@ export function AnomalyTable({
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDesc, setSortDesc] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [severity, setSeverity] = useState<"all" | RiskAlertRecord["severity"]>("all");
 
   const instById = useMemo(
     () => new Map(institutions.map((i) => [i.id, i])),
     [institutions],
   );
 
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return alerts.filter((alert) => {
+      if (severity !== "all" && alert.severity !== severity) {
+        return false;
+      }
+      if (!normalized) {
+        return true;
+      }
+
+      const inst = instById.get(alert.institutionId ?? "");
+      const meta = alert.anomaly;
+      return [
+        alert.title,
+        alert.explanation,
+        alert.predictedImpact,
+        alert.severity,
+        meta?.metric,
+        inst?.name,
+        inst?.shortName,
+        inst?.region,
+      ].some((value) => (value ?? "").toLowerCase().includes(normalized));
+    });
+  }, [alerts, instById, query, severity]);
+
+  useEffect(() => {
+    if (openId && !filtered.some((alert) => alert.id === openId)) {
+      setOpenId(null);
+    }
+  }, [filtered, openId]);
+
   const sorted = useMemo(() => {
-    const list = [...alerts];
+    const list = [...filtered];
     list.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "severity") {
@@ -54,13 +88,11 @@ export function AnomalyTable({
         cmp = ai.localeCompare(bi);
       } else if (sortKey === "metric") {
         cmp = (a.anomaly?.metric ?? "").localeCompare(b.anomaly?.metric ?? "");
-      } else if (sortKey === "z") {
-        cmp = Math.abs(a.anomaly?.zScore ?? 0) - Math.abs(b.anomaly?.zScore ?? 0);
       }
       return sortDesc ? -cmp : cmp;
     });
     return list;
-  }, [alerts, instById, sortKey, sortDesc]);
+  }, [filtered, instById, sortKey, sortDesc]);
 
   if (alerts.length === 0) {
     return <p style={{ color: "var(--muted)", margin: 0 }}>{emptyText}</p>;
@@ -96,8 +128,37 @@ export function AnomalyTable({
   );
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <>
+      <div className="toolbar anomaly-toolbar">
+        <Field label="Search alerts">
+          <TextInput
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search institution, metric, or explanation"
+          />
+        </Field>
+        <Field label="Severity">
+          <SelectInput
+            value={severity}
+            onChange={(event) => setSeverity(event.target.value as "all" | RiskAlertRecord["severity"])}
+          >
+            <option value="all">All severities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </SelectInput>
+        </Field>
+        <div className="toolbar__meta">
+          {sorted.length} of {alerts.length} visible
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
+        <p style={{ color: "var(--muted)", margin: 0 }}>No alerts match the current filters.</p>
+      ) : (
+      <div className="responsive-table">
+      <table className="data-table">
         <thead>
           <tr style={{ borderBottom: "1px solid #e3eaf3" }}>
             {headerCell("Severity", "severity")}
@@ -109,7 +170,6 @@ export function AnomalyTable({
             <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6, color: "var(--muted)" }}>
               UCAR avg
             </th>
-            {headerCell("z-score", "z", "right")}
           </tr>
         </thead>
         <tbody>
@@ -118,7 +178,6 @@ export function AnomalyTable({
             const sev = SEVERITY_STYLE[alert.severity];
             const meta = alert.anomaly;
             const isOpen = openId === alert.id;
-            const z = meta?.zScore ?? 0;
             return (
               <Fragment key={alert.id}>
                 <tr
@@ -164,13 +223,10 @@ export function AnomalyTable({
                   <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
                     {meta ? formatValue(meta.metric, meta.peerMean) : "—"}
                   </td>
-                  <td style={{ padding: "10px 12px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: z > 0 ? "#e85d6c" : "#2f86c8" }}>
-                    {meta ? `${z >= 0 ? "+" : ""}${z.toFixed(2)}σ` : "—"}
-                  </td>
                 </tr>
                 {isOpen && (
                   <tr style={{ borderBottom: "1px solid #eef2f7", background: "#f7f9fc" }}>
-                    <td colSpan={6} style={{ padding: "0 12px 12px" }}>
+                    <td colSpan={5} style={{ padding: "0 12px 12px" }}>
                       <div style={{ fontSize: 12.5, color: "#3d4f63", lineHeight: 1.5 }}>
                         {alert.explanation}
                       </div>
@@ -189,5 +245,7 @@ export function AnomalyTable({
         </tbody>
       </table>
     </div>
+      )}
+    </>
   );
 }

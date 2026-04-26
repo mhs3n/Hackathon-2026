@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
+import { Button } from "../components/ui/Button";
+import { Field, SelectInput, TextInput } from "../components/ui/FormControls";
+import { PageHeader } from "../components/ui/PageHeader";
+import { StatusBanner } from "../components/ui/StatusBanner";
 import {
   commitImport,
   fetchImportHistory,
@@ -32,6 +36,8 @@ const FIELD_LABEL: Record<string, string> = {
   carbon_footprint_index: "Carbon footprint index",
 };
 
+type HistorySortKey = "importedAt" | "institution" | "period" | "sourceFile" | "fileType";
+
 export function DataImportPage() {
   const { user } = useAuth();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -45,6 +51,9 @@ export function DataImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [committedFor, setCommittedFor] = useState<{ name: string; period: string; at: string } | null>(null);
   const [history, setHistory] = useState<ImportBatch[]>([]);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historySortKey, setHistorySortKey] = useState<HistorySortKey>("importedAt");
+  const [historySortDirection, setHistorySortDirection] = useState<"desc" | "asc">("desc");
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load institution list (only UCAR admin sees the dropdown)
@@ -151,83 +160,126 @@ export function DataImportPage() {
     );
   }, [editedMapped]);
 
+  const filteredHistory = useMemo(() => {
+    const normalized = historyQuery.trim().toLowerCase();
+    const sortable = history.map((batch) => {
+      const periodLabel = periods.find((p) => p.id === batch.reportingPeriodId)?.label ?? batch.reportingPeriodId;
+      const institutionLabel =
+        institutions.find((i) => i.id === batch.institutionId)?.shortName ?? batch.institutionId;
+      const domainCounts = Object.entries(batch.domainsWritten)
+        .filter(([, fields]) => fields.length > 0)
+        .map(([key, fields]) => `${key} (${fields.length})`)
+        .join(", ");
+
+      return { batch, periodLabel, institutionLabel, domainCounts };
+    });
+
+    return sortable
+      .filter((row) => {
+        if (!normalized) {
+          return true;
+        }
+        return [
+          row.institutionLabel,
+          row.periodLabel,
+          row.batch.sourceFile,
+          row.batch.fileType,
+          row.domainCounts,
+          row.batch.userId ?? "",
+        ].some((value) => value.toLowerCase().includes(normalized));
+      })
+      .sort((a, b) => {
+        const direction = historySortDirection === "desc" ? -1 : 1;
+        const left = historySortKey === "institution"
+          ? a.institutionLabel
+          : historySortKey === "period"
+            ? a.periodLabel
+            : a.batch[historySortKey];
+        const right = historySortKey === "institution"
+          ? b.institutionLabel
+          : historySortKey === "period"
+            ? b.periodLabel
+            : b.batch[historySortKey];
+        return String(left).localeCompare(String(right)) * direction;
+      });
+  }, [history, historyQuery, historySortDirection, historySortKey, institutions, periods]);
+
+  const sortHistory = (key: HistorySortKey) => {
+    if (historySortKey === key) {
+      setHistorySortDirection((direction) => (direction === "desc" ? "asc" : "desc"));
+      return;
+    }
+    setHistorySortKey(key);
+    setHistorySortDirection(key === "importedAt" ? "desc" : "asc");
+  };
+
+  const sortLabel = (key: HistorySortKey, label: string) => (
+    <button type="button" className="data-table__sort" onClick={() => sortHistory(key)}>
+      {label}{historySortKey === key ? ` ${historySortDirection === "desc" ? "down" : "up"}` : ""}
+    </button>
+  );
+
   return (
     <section className="page">
-      <div className="page__header">
-        <h1>Import institutional KPIs</h1>
-        <p className="page__subtitle">
-          Drop an Excel, CSV or PDF report and the AI pipeline will extract KPIs automatically. You
-          can review and edit the values before saving them to the current reporting period.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Data Import"
+        title="Import institutional KPIs"
+        description="Drop an Excel, CSV or PDF report and the AI pipeline will extract KPIs automatically. You can review and edit the values before saving them to the current reporting period."
+      />
 
-      <section className="panel" style={{ marginBottom: 16 }}>
+      <section className="panel">
         <div className="panel__header">
           <h3>1. Select institution and file</h3>
           <span>Supported: .xlsx, .xls, .csv, .pdf</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.4fr auto", gap: 12, alignItems: "end" }}>
-          <div>
-            <label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-              Institution
-            </label>
+        <div className="form-grid">
+          <Field label="Institution">
             {user?.role === "ucar_admin" ? (
-              <select
+              <SelectInput
                 value={institutionId}
                 onChange={(e) => setInstitutionId(e.target.value)}
-                style={selectStyle}
               >
                 {institutions.map((i) => (
                   <option key={i.id} value={i.id}>
-                    {i.shortName} — {i.name}
+                    {i.shortName} - {i.name}
                   </option>
                 ))}
-              </select>
+              </SelectInput>
             ) : (
-              <input value={user?.institutionShortName ?? institutionId} disabled style={selectStyle} />
+              <TextInput value={user?.institutionShortName ?? institutionId} disabled />
             )}
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-              Reporting period
-            </label>
-            <select
+          </Field>
+          <Field label="Reporting period">
+            <SelectInput
               value={periodId}
               onChange={(e) => setPeriodId(e.target.value)}
-              style={selectStyle}
             >
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-              File
-            </label>
-            <input
+            </SelectInput>
+          </Field>
+          <Field label="File">
+            <TextInput
               ref={fileRef}
               type="file"
               accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              style={selectStyle}
             />
-          </div>
-          <button
+          </Field>
+          <Button
             onClick={onUpload}
             disabled={!file || !institutionId || status === "uploading"}
-            style={{
-              ...primaryButton,
-              opacity: !file || !institutionId || status === "uploading" ? 0.5 : 1,
-            }}
           >
-            {status === "uploading" ? "Extracting…" : "Extract KPIs"}
-          </button>
+            {status === "uploading" ? "Extracting..." : "Extract KPIs"}
+          </Button>
         </div>
         {error && (
-          <p style={{ color: "#e85d6c", marginTop: 12, fontSize: 13 }}>Error: {error}</p>
+          <div style={{ marginTop: 12 }}>
+            <StatusBanner tone="danger" title="Import error">{error}</StatusBanner>
+          </div>
         )}
       </section>
 
@@ -244,21 +296,19 @@ export function DataImportPage() {
             </div>
 
             {preview.warnings.length > 0 && (
-              <div style={{ background: "#fdf5e3", border: "1px solid #f4d27e", color: "#7a5800", padding: "10px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
-                <strong>Warnings:</strong>
+              <StatusBanner tone="warning" title="Warnings">
                 <ul style={{ margin: "6px 0 0 18px" }}>
                   {preview.warnings.map((w, i) => <li key={i}>{w}</li>)}
                 </ul>
-              </div>
+              </StatusBanner>
             )}
 
             {preview.alerts.length > 0 && (
-              <div style={{ background: "#fdecee", border: "1px solid #f0a4ad", color: "#9a2230", padding: "10px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
-                <strong>Threshold alerts detected:</strong>
+              <StatusBanner tone="danger" title="Threshold alerts detected">
                 <ul style={{ margin: "6px 0 0 18px" }}>
                   {preview.alerts.map((a, i) => <li key={i}>{a}</li>)}
                 </ul>
-              </div>
+              </StatusBanner>
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
@@ -280,11 +330,11 @@ export function DataImportPage() {
                       <div key={field} style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8, alignItems: "center", marginBottom: 8 }}>
                         <label style={{ fontSize: 12.5, color: "#3d4f63" }}>{FIELD_LABEL[field] ?? field}</label>
                         <input
+                          className="form-input form-input--number"
                           type="number"
                           step="any"
                           value={value}
                           onChange={(e) => updateField(domain, field, e.target.value)}
-                          style={numberInputStyle}
                         />
                       </div>
                     ))}
@@ -294,14 +344,13 @@ export function DataImportPage() {
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
-              <button onClick={reset} style={secondaryButton}>Cancel</button>
-              <button
+              <Button onClick={reset} variant="secondary">Cancel</Button>
+              <Button
                 onClick={onCommit}
                 disabled={status === "committing"}
-                style={{ ...primaryButton, opacity: status === "committing" ? 0.5 : 1 }}
               >
-                {status === "committing" ? "Saving…" : `Save to ${preview.institutionName}`}
-              </button>
+                {status === "committing" ? "Saving..." : `Save to ${preview.institutionName}`}
+              </Button>
             </div>
           </section>
 
@@ -317,105 +366,87 @@ export function DataImportPage() {
       )}
 
       {status === "done" && committedFor && (
-        <section className="panel" style={{ background: "#e8f5ec", border: "1px solid #9ed4ad", marginBottom: 16 }}>
-          <div style={{ color: "#1a6b3a", fontSize: 14 }}>
-            ✅ <strong>{committedFor.name}</strong> KPIs saved for <strong>{committedFor.period}</strong>{" "}
+        <StatusBanner
+          tone="success"
+          title="KPIs saved"
+          actions={<Button onClick={reset} variant="secondary">Import another file</Button>}
+        >
+            <strong>{committedFor.name}</strong> KPIs saved for <strong>{committedFor.period}</strong>{" "}
             at <code style={{ background: "#fff", padding: "1px 6px", borderRadius: 4 }}>{committedFor.at}</code>.
             Dashboards refreshed.
-          </div>
-          <button onClick={reset} style={{ ...secondaryButton, marginTop: 10 }}>Import another file</button>
-        </section>
+        </StatusBanner>
       )}
 
       {history.length > 0 && (
         <section className="panel">
           <div className="panel__header">
             <h3>Import audit log</h3>
-            <span>{history.length} most recent batch{history.length === 1 ? "" : "es"}</span>
+            <span>{filteredHistory.length} of {history.length} batch{history.length === 1 ? "" : "es"}</span>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-            <thead>
-              <tr style={{ background: "#f7f9fc", color: "#3d4f63" }}>
-                <th style={cellHead}>When</th>
-                <th style={cellHead}>Institution</th>
-                <th style={cellHead}>Period</th>
-                <th style={cellHead}>Source file</th>
-                <th style={cellHead}>Type</th>
-                <th style={cellHead}>Domains written</th>
-                <th style={cellHead}>By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((b) => {
-                const periodLabel = periods.find((p) => p.id === b.reportingPeriodId)?.label ?? b.reportingPeriodId;
-                const instLabel =
-                  institutions.find((i) => i.id === b.institutionId)?.shortName ?? b.institutionId;
-                const domainCounts = Object.entries(b.domainsWritten)
-                  .filter(([, fields]) => fields.length > 0)
-                  .map(([k, fields]) => `${k} (${fields.length})`)
-                  .join(", ");
-                return (
-                  <tr key={b.id} style={{ borderTop: "1px solid #eef2f7" }}>
-                    <td style={cell}>{b.importedAt.replace("T", " ").replace("Z", "")}</td>
-                    <td style={cell}><strong>{instLabel}</strong></td>
-                    <td style={cell}>{periodLabel}</td>
-                    <td style={cell}><code style={{ fontSize: 11 }}>{b.sourceFile}</code></td>
-                    <td style={cell}>{b.fileType}</td>
-                    <td style={{ ...cell, color: "#3d4f63" }}>{domainCounts || "—"}</td>
-                    <td style={cell}>{b.userId ?? "—"}</td>
+          <div className="toolbar" style={{ marginBottom: 12 }}>
+            <Field label="Search imports">
+              <TextInput
+                type="search"
+                value={historyQuery}
+                onChange={(event) => setHistoryQuery(event.target.value)}
+                placeholder="Institution, file, period, type, or user"
+              />
+            </Field>
+            <Field label="Sort by">
+              <SelectInput
+                value={historySortKey}
+                onChange={(event) => setHistorySortKey(event.target.value as HistorySortKey)}
+              >
+                <option value="importedAt">Import time</option>
+                <option value="institution">Institution</option>
+                <option value="period">Period</option>
+                <option value="sourceFile">Source file</option>
+                <option value="fileType">File type</option>
+              </SelectInput>
+            </Field>
+            <Field label="Direction">
+              <SelectInput
+                value={historySortDirection}
+                onChange={(event) => setHistorySortDirection(event.target.value as "desc" | "asc")}
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </SelectInput>
+            </Field>
+          </div>
+          <div className="responsive-table">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{sortLabel("importedAt", "When")}</th>
+                  <th>{sortLabel("institution", "Institution")}</th>
+                  <th>{sortLabel("period", "Period")}</th>
+                  <th>{sortLabel("sourceFile", "Source file")}</th>
+                  <th>{sortLabel("fileType", "Type")}</th>
+                  <th>Domains written</th>
+                  <th>By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHistory.map(({ batch, periodLabel, institutionLabel, domainCounts }) => (
+                  <tr key={batch.id}>
+                    <td>{batch.importedAt.replace("T", " ").replace("Z", "")}</td>
+                    <td><strong>{institutionLabel}</strong></td>
+                    <td>{periodLabel}</td>
+                    <td><code style={{ fontSize: 11 }}>{batch.sourceFile}</code></td>
+                    <td>{batch.fileType}</td>
+                    <td>{domainCounts || "-"}</td>
+                    <td>{batch.userId ?? "-"}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </section>
   );
 }
-
-const cellHead: React.CSSProperties = { textAlign: "left", padding: "8px 10px", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: 0.4 };
-const cell: React.CSSProperties = { padding: "9px 10px", verticalAlign: "top" };
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 11px",
-  border: "1px solid #e3eaf3",
-  borderRadius: 8,
-  fontSize: 13.5,
-  background: "white",
-};
-
-const numberInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "6px 8px",
-  border: "1px solid #e3eaf3",
-  borderRadius: 6,
-  fontSize: 13,
-  textAlign: "right",
-};
-
-const primaryButton: React.CSSProperties = {
-  background: "#1d5394",
-  color: "white",
-  border: "none",
-  borderRadius: 8,
-  padding: "10px 16px",
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: "pointer",
-};
-
-const secondaryButton: React.CSSProperties = {
-  background: "white",
-  color: "#3d4f63",
-  border: "1px solid #e3eaf3",
-  borderRadius: 8,
-  padding: "10px 16px",
-  fontWeight: 500,
-  fontSize: 13,
-  cursor: "pointer",
-};
 
 const domainCardStyle: React.CSSProperties = {
   background: "#fcfdfe",

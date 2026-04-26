@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -30,6 +30,7 @@ from .schemas import (
     ReportingPeriodRecord,
     StudentSnapshot,
     UcarDashboardView,
+    UcarReportResponse,
 )
 from .services import (
     build_auth_response,
@@ -37,8 +38,16 @@ from .services import (
     get_kpi_history,
     get_student_dashboard,
     get_ucar_dashboard,
+    get_ucar_report,
 )
 from .settings import settings
+
+DEMO_ACCOUNT_PASSWORD = "123456"
+DEMO_ACCOUNT_EMAILS = {
+    "owner@ucar.tn",
+    "insat@ucar.tn",
+    "takwa.bouheni@enstab.ucar.tn",
+}
 
 
 @asynccontextmanager
@@ -65,18 +74,13 @@ def healthcheck() -> dict[str, str]:
 
 @app.post("/auth/login", response_model=AuthLoginResponse)
 def login(payload: AuthLoginRequest, db: Session = Depends(get_db)):
-    if not payload.email and not payload.role:
-        raise HTTPException(status_code=400, detail="Provide email or role")
+    email = payload.email.strip().lower()
+    if email not in DEMO_ACCOUNT_EMAILS or payload.password != DEMO_ACCOUNT_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    statement = select(AppUser)
-    if payload.email:
-        statement = statement.where(AppUser.email == payload.email)
-    else:
-        statement = statement.where(AppUser.role == payload.role)
-
-    user = db.execute(statement).scalar_one_or_none()
+    user = db.execute(select(AppUser).where(AppUser.email == email)).scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="No matching seeded user found")
+        raise HTTPException(status_code=404, detail="Demo account is not seeded")
 
     return build_auth_response(db, user)
 
@@ -148,6 +152,23 @@ def chat(
 @app.get("/chat/quick-actions", response_model=list[str])
 def chat_quick_actions(current_user: AppUser = Depends(get_current_user)):
     return quick_actions_for_role(current_user.role)
+
+
+@app.get("/reports/ucar", response_model=UcarReportResponse)
+def ucar_report(
+    start_period_id: str,
+    end_period_id: str,
+    institution_ids: list[str] | None = Query(default=None),
+    _: AppUser = Depends(require_role("ucar_admin")),
+    db: Session = Depends(get_db),
+):
+    """Generate a UCAR-level KPI report for selected institutions and periods."""
+    return get_ucar_report(
+        db,
+        start_period_id=start_period_id,
+        end_period_id=end_period_id,
+        institution_ids=institution_ids,
+    )
 
 
 def _ensure_can_import(user: AppUser, institution_id: str, db: Session) -> Institution:

@@ -7,6 +7,7 @@ import { FutureModulePage } from "./pages/FutureModulePage";
 import { InstitutionDetailPage } from "./pages/InstitutionDetailPage";
 import { InstitutionDashboard } from "./pages/InstitutionDashboard";
 import { InstitutionsPage } from "./pages/InstitutionsPage";
+import { InstitutionIsoPage, UcarIsoPage } from "./pages/IsoCertificatesPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ReportsPage } from "./pages/ReportsPage";
@@ -45,7 +46,7 @@ export default function App() {
             element={
               <AppShell
                 items={[
-                  { to: "/admin/dashboard", label: "University Dashboard", icon: "dashboard" },
+                  { to: "/admin/dashboard", label: "Overview", icon: "dashboard" },
                   { to: "/admin/institutions", label: "View All Institutions", icon: "institutions" },
                   {
                     label: "KPI Monitoring",
@@ -55,6 +56,7 @@ export default function App() {
                       { to: "/admin/risk-monitoring", label: "Risk Monitoring", icon: "risk" },
                     ],
                   },
+                  { to: "/admin/iso", label: "ISO Certifications", icon: "iso" },
                   { to: "/admin/data-import", label: "Data Import", icon: "import" },
                   { to: "/admin/reports", label: "Generate UCAR Report", icon: "reports" },
                 ]}
@@ -67,6 +69,7 @@ export default function App() {
             <Route path="data-import" element={<DataImportPage />} />
             <Route path="kpi-comparison" element={<UcarKpiComparisonPage />} />
             <Route path="risk-monitoring" element={<UcarRiskMonitoringPage />} />
+            <Route path="iso" element={<UcarIsoPage />} />
             <Route
               path="reports"
               element={
@@ -99,6 +102,7 @@ export default function App() {
                       { to: "/institution/kpi/partnership", label: "Partnerships", icon: "partnership" },
                     ],
                   },
+                  { to: "/institution/iso", label: "ISO Certifications", icon: "iso" },
                   { to: "/institution/data-import", label: "Data Import", icon: "import" },
                   { to: "/institution/student-risk-list", label: "Student Risk List", icon: "risk", future: true },
                   { to: "/institution/report", label: "Generate Institution Report", icon: "reports" },
@@ -115,6 +119,7 @@ export default function App() {
             <Route path="kpi/research" element={<ResearchKpiPage />} />
             <Route path="kpi/infrastructure" element={<InfrastructureKpiPage />} />
             <Route path="kpi/partnership" element={<PartnershipKpiPage />} />
+            <Route path="iso" element={<InstitutionIsoPage />} />
             <Route
               path="student-risk-list"
               element={

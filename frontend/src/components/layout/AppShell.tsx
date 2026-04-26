@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthContext";
 import { usePeriod } from "../../period/PeriodContext";
 import { ChatWidget } from "../ChatWidget";
+import { SelectInput } from "../ui/FormControls";
 
 export type SidebarItem = {
   to?: string;
@@ -147,6 +148,13 @@ function SidebarIcon({ kind }: { kind: string }) {
           <path d="M21 21v-2a4 4 0 0 0-3-3.87" />
         </svg>
       );
+    case "iso":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
     case "monitoring":
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -228,39 +236,68 @@ function NavItem({ item }: { item: SidebarItem }) {
 
 export function AppShell({ items }: AppShellProps) {
   const { user, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   return (
-    <div className="auth-app">
-      <header className="auth-header">
-        <div className="auth-header__brand auth-header__brand--minimal">
-          <img className="auth-header__logo" src="/assets/ucar-logo.png" alt="University of Carthage logo" />
-          <span className="shell__eyebrow">University of Carthage</span>
+    <div className="ucar-page auth-app">
+      {/* Top utility bar (matches landing) */}
+      <div className="ucar-topbar">
+        <div className="ucar-topbar__inner">
+          <span>Avenue de la République, BP 77 — 1054 Amilcar, Tunisia</span>
+          <div className="ucar-topbar__links">
+            <Link to="/">Public site</Link>
+            <a href="https://ucar.rnu.tn" target="_blank" rel="noreferrer">
+              ucar.rnu.tn
+            </a>
+            {user ? (
+              <span>
+                {user.name} · <em style={{ fontStyle: "normal", opacity: 0.8 }}>{user.role.replace("_", " ")}</em>
+              </span>
+            ) : null}
+          </div>
         </div>
+      </div>
 
-        <div className="auth-header__actions">
-          {user?.role === "institution_admin" && user.institutionName ? (
-            <div className="auth-header__institution">
-              <div className="content-brand-bar__text">
-                <strong>{user.institutionShortName}</strong>
-                <span>{user.institutionName}</span>
-              </div>
-              {user.institutionLogoPath ? (
-                <img
-                  className="content-brand-bar__logo"
-                  src={user.institutionLogoPath}
-                  alt={`${user.institutionName} logo`}
-                />
-              ) : null}
+      {/* Main header (matches landing) */}
+      <header className="ucar-header">
+        <div className="ucar-header__inner">
+          <Link className="ucar-brand" to="/">
+            <img src="/assets/ucar-logo.png" alt="University of Carthage" />
+            <div className="ucar-brand__text">
+              <strong>University of Carthage</strong>
+              <span>Insight Platform</span>
             </div>
-          ) : null}
-          <button className="ghost-button ghost-button--light" onClick={logout} type="button">
-            Sign out
-          </button>
+          </Link>
+          <nav className="ucar-nav ucar-nav--auth">
+            {user?.role === "institution_admin" && user.institutionName ? (
+              <div className="ucar-nav__institution">
+                {user.institutionLogoPath ? (
+                  <img src={user.institutionLogoPath} alt={`${user.institutionName} logo`} />
+                ) : null}
+                <div>
+                  <strong>{user.institutionShortName}</strong>
+                  <span>{user.institutionName}</span>
+                </div>
+              </div>
+            ) : null}
+            <button className="ucar-nav__signout" onClick={logout} type="button">
+              Sign out
+            </button>
+          </nav>
         </div>
       </header>
 
-      <div className="shell shell--collapsed">
-        <aside className="shell__sidebar shell__sidebar--collapsed">
+      <div className={sidebarCollapsed ? "shell shell--collapsed" : "shell"}>
+        <aside className="shell__sidebar">
+          <button
+            type="button"
+            className="shell__toggle"
+            onClick={() => setSidebarCollapsed((value) => !value)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+            title={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}
+          >
+            <span aria-hidden="true">{sidebarCollapsed ? ">" : "<"}</span>
+          </button>
           <nav className="shell__nav">
             {items.map((item) => (
               <NavItem key={item.to ?? item.label} item={item} />
@@ -276,20 +313,58 @@ export function AppShell({ items }: AppShellProps) {
         </aside>
 
         <main className="shell__content">
-          <div className="content-brand-bar">
-            <div className="content-brand-bar__left">
-              <span className="shell__eyebrow">Operational Intelligence Platform</span>
-            </div>
-            <PeriodSelector />
-          </div>
           <Outlet />
         </main>
       </div>
 
-      <footer className="auth-footer">
-        <div className="auth-footer__inner">
-          <span>University of Carthage prototype</span>
-          <span>Unified dashboards · explainable AI · institutional reporting</span>
+      {/* Full UCAR-style footer (matches landing) */}
+      <footer className="ucar-footer">
+        <div className="ucar-container ucar-footer__grid">
+          <div>
+            <div className="ucar-brand ucar-brand--footer">
+              <img src="/assets/ucar-logo.png" alt="University of Carthage" />
+              <div className="ucar-brand__text">
+                <strong>University of Carthage</strong>
+                <span>Université de Carthage</span>
+              </div>
+            </div>
+            <p className="ucar-footer__about">
+              Established in 1988, UCAR is a Tunisian public institution dedicated to education and research,
+              operating under the supervision of the Ministry of Higher Education and Scientific Research.
+            </p>
+          </div>
+          <div>
+            <h4>Useful Links</h4>
+            <ul className="ucar-footer__links">
+              <li><a href="https://ucar.rnu.tn/alumni/" target="_blank" rel="noreferrer">Alumni</a></li>
+              <li><a href="https://proemploi.ucar.rnu.tn" target="_blank" rel="noreferrer">Pro emploi</a></li>
+              <li><a href="https://pmo.ucar.rnu.tn/" target="_blank" rel="noreferrer">PMO</a></li>
+              <li><a href="http://www.concours.ucar.rnu.tn" target="_blank" rel="noreferrer">Admission</a></li>
+              <li><a href="https://ucar.rnu.tn/projects/" target="_blank" rel="noreferrer">Projects</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Platform</h4>
+            <ul className="ucar-footer__links">
+              <li><Link to="/">Public site</Link></li>
+              <li><Link to="/app">Dashboard</Link></li>
+              <li><button className="ucar-footer__btn" onClick={logout} type="button">Sign out</button></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact</h4>
+            <address className="ucar-footer__contact">
+              Avenue de la République
+              <br />
+              BP 77 — 1054 Amilcar
+              <br />
+              Tunisia
+            </address>
+          </div>
+        </div>
+        <div className="ucar-footer__bottom">
+          <span>©2026 University of Carthage. All Rights Reserved.</span>
+          <span>AI · Data · Governance</span>
         </div>
       </footer>
 
@@ -298,34 +373,22 @@ export function AppShell({ items }: AppShellProps) {
   );
 }
 
-function PeriodSelector() {
+export function PeriodSelector() {
   const { periods, periodId, setPeriodId, loading } = usePeriod();
   if (loading || periods.length === 0) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 11, color: "#60758a", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>
-        Period
-      </span>
-      <select
+    <div className="period-selector">
+      <span>Period</span>
+      <SelectInput
         value={periodId}
         onChange={(e) => setPeriodId(e.target.value)}
-        style={{
-          padding: "7px 10px",
-          border: "1px solid #d6e0ec",
-          borderRadius: 8,
-          fontSize: 13,
-          background: "white",
-          color: "#13263b",
-          fontWeight: 500,
-          cursor: "pointer",
-        }}
       >
         {periods.map((p) => (
           <option key={p.id} value={p.id}>
             {p.label}
           </option>
         ))}
-      </select>
+      </SelectInput>
     </div>
   );
 }

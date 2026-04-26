@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { TextInput } from "../components/ui/FormControls";
+import { PageHeader } from "../components/ui/PageHeader";
 import { usePeriod } from "../period/PeriodContext";
 import { fetchUcarDashboard } from "../lib/api";
 import type { Institution } from "../types";
@@ -59,27 +61,26 @@ export function InstitutionsPage() {
 
   return (
     <section className="page">
-      <header className="page__header">
-        <div>
-          <span className="shell__eyebrow">UCAR Admin</span>
-          <h2>All Institutions</h2>
-          <p>
-            {error
-              ?? (loading
-                ? "Refreshing institution data for the selected reporting period."
-                : "A focused view for leadership to scan institutional status without leaving the admin surface.")}
-          </p>
-        </div>
-      </header>
-      <section className="panel" style={{ marginBottom: 16 }}>
+      <PageHeader
+        eyebrow="UCAR Admin"
+        title="All Institutions"
+        breadcrumbs={[{ label: "UCAR Overview", to: "/admin/dashboard" }, { label: "All Institutions" }]}
+        description={
+          error
+            ?? (loading
+              ? "Refreshing institution data for the selected reporting period."
+              : "A focused view for leadership to scan institutional status without leaving the admin surface.")
+        }
+      />
+
+      <section className="panel">
         <div className="panel__header">
           <h3>Search institutions</h3>
           <span>
             {filteredInstitutions.length} of {institutions.length} visible
           </span>
         </div>
-        <input
-          className="institution-search"
+        <TextInput
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -94,6 +95,7 @@ export function InstitutionsPage() {
           <span>Dropout</span>
           <span>Budget Consumed</span>
           <span>Risk</span>
+          <span>Action</span>
         </div>
         {filteredInstitutions.map((institution) => (
           <Link
@@ -111,11 +113,13 @@ export function InstitutionsPage() {
             <span className={`risk-pill risk-pill--${institution.riskLevel.toLowerCase()}`}>
               {institution.riskLevel}
             </span>
+            <span className="table__action">View details</span>
           </Link>
         ))}
         {!error && filteredInstitutions.length === 0 && (
           <div className="table__row">
             <span>No institutions match “{query}”.</span>
+            <span />
             <span />
             <span />
             <span />

@@ -10,13 +10,11 @@ UserRole = Literal["ucar_admin", "institution_admin", "student"]
 
 class AuthLoginRequest(BaseModel):
     """
-    Hackathon-friendly auth:
-    - If email is provided, we match an existing seeded user by email.
-    - If role is provided, we match the first seeded user with that role.
+    Demo credential auth for the hackathon workspace.
     """
 
-    email: str | None = None
-    role: UserRole | None = None
+    email: str
+    password: str
 
 
 class AuthUser(BaseModel):
@@ -102,6 +100,68 @@ class ImportBatchRecord(BaseModel):
     fileType: str
     domainsWritten: dict[str, list[str]]
     importedAt: str
+
+
+class UcarReportFilters(BaseModel):
+    startPeriodId: str
+    endPeriodId: str
+    institutionIds: list[str]
+
+
+class UcarReportSummary(BaseModel):
+    institutionCount: int
+    periodCount: int
+    rowCount: int
+    academicAverage: float | None = None
+    budgetUsageAverage: float | None = None
+    highRiskCount: int
+    totalBudgetAllocated: float
+    totalBudgetConsumed: float
+
+
+class UcarReportRow(BaseModel):
+    institutionId: str
+    institutionShortName: str
+    institutionName: str
+    region: str
+    periodId: str
+    periodLabel: str
+    successRate: float | None = None
+    attendanceRate: float | None = None
+    repetitionRate: float | None = None
+    dropoutRate: float | None = None
+    abandonmentRate: float | None = None
+    employabilityRate: float | None = None
+    insertionDelayMonths: float | None = None
+    budgetAllocated: float | None = None
+    budgetConsumed: float | None = None
+    budgetUsage: float | None = None
+    costPerStudent: float | None = None
+    teachingHeadcount: int | None = None
+    adminHeadcount: int | None = None
+    absenteeismRate: float | None = None
+    publicationsCount: int | None = None
+    activeProjects: int | None = None
+    fundingSecuredTnd: float | None = None
+    classroomOccupancyPct: float | None = None
+    equipmentAvailabilityPct: float | None = None
+    activeAgreementsCount: int | None = None
+    studentMobilityIncoming: int | None = None
+    studentMobilityOutgoing: int | None = None
+    energyConsumptionIndex: float | None = None
+    carbonFootprintIndex: float | None = None
+    recyclingRate: float | None = None
+    mobilityIndex: float | None = None
+    riskScore: int | None = None
+    riskLevel: Literal["Low", "Medium", "High"] | None = None
+    riskSummary: str | None = None
+
+
+class UcarReportResponse(BaseModel):
+    generatedAt: str
+    filters: UcarReportFilters
+    summary: UcarReportSummary
+    rows: list[UcarReportRow]
 
 
 class ChatMessage(BaseModel):

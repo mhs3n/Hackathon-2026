@@ -1,4 +1,4 @@
-"""Generates seed.sql with all 34 UCAR institutions and 4 historical periods of KPI data."""
+"""Generates seed.sql with the official 35 UCAR institutions and 4 historical periods of KPI data."""
 from __future__ import annotations
 import random
 from pathlib import Path
@@ -11,21 +11,24 @@ INSTITUTIONS = [
     ("fsegn", "FSEGN", "Faculty of Economic Sciences and Management of Nabeul", "Nabeul"),
     ("enau", "ENAU", "National School of Architecture and Urbanism of Tunis", "Tunis"),
     ("ept", "EPT", "Tunisia Polytechnic School", "La Marsa"),
-    ("enicarthage", "ENICarthage", "National Engineering School of Carthage", "Tunis"),
+    ("enicarthage", "ENICar", "National Engineering School of Carthage", "Tunis"),
+    ("enstab", "ENSTAB", "National School of Sciences and Advanced Technologies of Borj Cedria", "Borj Cedria"),
     ("essai", "ESSAI", "Higher School of Statistics and Information Analysis", "Tunis"),
     ("esac", "ESAC", "Higher School of Audiovisual and Cinema of Gammarth", "Gammarth"),
     ("ipeib", "IPEIB", "Preparatory Institute for Engineering Studies of Bizerte", "Bizerte"),
     ("ihec", "IHEC", "Institute of Advanced Business Studies of Carthage", "Carthage"),
     ("insat", "INSAT", "National Institute of Applied Science and Technology", "Ariana"),
+    ("instm", "INSTM", "National Institute of Marine Science and Technology", "Salammbo"),
     ("issatm", "ISSATM", "Higher Institute of Applied Sciences and Technology of Mateur", "Bizerte"),
     ("ipein", "IPEIN", "Preparatory Institute for Engineering Studies of Nabeul", "Nabeul"),
     ("ipest", "IPEST", "Preparatory Institute for Scientific and Technical Studies of La Marsa", "La Marsa"),
     ("isban", "ISBAN", "Higher Institute of Fine Arts of Nabeul", "Nabeul"),
     ("isteub", "ISTEUB", "Higher Institute of Environment, Urbanism and Building Technologies", "Tunis"),
     ("islt", "ISLT", "Higher Institute of Languages of Tunis", "Tunis"),
-    ("islain", "ISLAIN", "Higher Institute of Applied Languages and Computer Science of Nabeul", "Nabeul"),
+    ("isln", "ISLN", "Higher Institute of Languages of Nabeul", "Nabeul"),
     ("isste", "ISSTE", "Higher Institute of Sciences and Technology of Environment of Borj Cedria", "Borj Cedria"),
-    ("isccb", "ISCCB", "Higher Institute of Business and Accountancy of Bizerte", "Bizerte"),
+    ("istic", "ISTIC", "Higher Institute of Information and Communication Technologies", "Borj Cedria"),
+    ("isgb", "ISGB", "Higher Institute of Management of Bizerte", "Bizerte"),
     ("isepbg", "ISEP-BG", "Higher Institute of Preparatory Studies in Biology and Geology of Soukra", "Ariana"),
     ("supcom", "SupCom", "Higher School of Communication of Tunis", "Tunis"),
     ("esamograne", "ESAMograne", "Higher School of Agriculture of Mograne", "Zaghouan"),
@@ -36,13 +39,11 @@ INSTITUTIONS = [
     ("isce", "ISCE", "Higher Institute for Childhood Educators of Carthage", "Carthage"),
     ("inat", "INAT", "National Agronomic Institute of Tunisia", "Tunis"),
     ("ihet", "IHET", "Institute of Advanced Tourism Studies of Sidi Dhrif", "Sidi Dhrif"),
-    ("inrgref", "INRGREF", "National Research Institute for Rural Engineering, Water and Forestry", "Ariana"),
     ("inrat", "INRAT", "National Agronomic Research Institute of Tunisia", "Ariana"),
     ("enib", "ENIB", "National Engineering School of Bizerte", "Bizerte"),
-    ("cbbc", "CBBC", "Center of Biotechnology of Borj Cedria", "Borj Cedria"),
 ]
 
-assert len(INSTITUTIONS) == 34
+assert len(INSTITUTIONS) == 35
 
 # 4 reporting periods (oldest -> newest)
 PERIODS = [
@@ -99,9 +100,9 @@ lines.append(",\n".join(inst_rows) + ";\n")
 
 lines.append(
     "INSERT INTO app_users (id, full_name, email, role, institution_id, student_profile_id, created_at) VALUES\n"
-    "('user_ucar_01', 'Leila Mansour', 'leila.mansour@ucar.tn', 'ucar_admin', NULL, NULL, '2026-04-25T10:00:00Z'),\n"
-    "('user_inst_01', 'Sami Ben Ali', 'sami.benali@insat.ucar.tn', 'institution_admin', 'insat', NULL, '2026-04-25T10:00:00Z'),\n"
-    "('user_student_01', 'Ahmed Gharbi', 'ahmed.gharbi@insat.ucar.tn', 'student', 'insat', 'student_insat_01', '2026-04-25T10:00:00Z');\n"
+    "('user_ucar_01', 'UCAR Owner', 'owner@ucar.tn', 'ucar_admin', NULL, NULL, '2026-04-25T10:00:00Z'),\n"
+    "('user_inst_01', 'INSAT Administrator', 'insat@ucar.tn', 'institution_admin', 'insat', NULL, '2026-04-25T10:00:00Z'),\n"
+    "('user_student_01', 'Takwa Bouheni', 'takwa.bouheni@enstab.ucar.tn', 'student', 'insat', 'student_insat_01', '2026-04-25T10:00:00Z');\n"
 )
 
 # Reporting periods
@@ -312,7 +313,7 @@ lines.append(
 # Students
 lines.append(
     "INSERT INTO students (id, institution_id, student_code, full_name, program_name, level_label, created_at, updated_at) VALUES\n"
-    f"('student_insat_01', 'insat', 'INSAT-2026-001', 'Ahmed Gharbi', 'Computer Engineering', '2nd Year', '{_pk_ca}', '{_pk_ua}'),\n"
+    f"('student_insat_01', 'insat', 'INSAT-2026-001', 'Takwa Bouheni', 'Computer Engineering', '2nd Year', '{_pk_ca}', '{_pk_ua}'),\n"
     f"('student_insat_02', 'insat', 'INSAT-2026-002', 'Sarra Louati', 'Industrial Systems', '3rd Year', '{_pk_ca}', '{_pk_ua}'),\n"
     f"('student_fsb_01', 'fsb', 'FSB-2026-003', 'Amira Ben Salem', 'Applied Mathematics', '1st Year', '{_pk_ca}', '{_pk_ua}');\n"
 )
@@ -327,7 +328,7 @@ lines.append(
 # Risk alerts will be auto-generated by AI engine; seed empty (or one demo)
 lines.append(
     "INSERT INTO risk_alerts (id, scope_type, institution_id, student_profile_id, reporting_period_id, severity, title, explanation, predicted_impact, created_at) VALUES\n"
-    f"('ra_student_ahmed', 'student', 'insat', 'student_insat_01', 'rp_2026_s2', 'high', 'Student at academic risk', 'Attendance dropped sharply and recent grades remain below cohort average.', 'Likely increased dropout risk without intervention', '{_pk_ua}');\n"
+    f"('ra_student_takwa', 'student', 'insat', 'student_insat_01', 'rp_2026_s2', 'high', 'Student at academic risk', 'Attendance dropped sharply and recent grades remain below cohort average.', 'Likely increased dropout risk without intervention', '{_pk_ua}');\n"
 )
 
 lines.append(

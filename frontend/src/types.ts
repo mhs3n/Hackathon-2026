@@ -208,6 +208,68 @@ export type GeneratedReportRecord = {
   summaryText: string;
 };
 
+export type UcarReportFilters = {
+  startPeriodId: string;
+  endPeriodId: string;
+  institutionIds: string[];
+};
+
+export type UcarReportSummary = {
+  institutionCount: number;
+  periodCount: number;
+  rowCount: number;
+  academicAverage: number | null;
+  budgetUsageAverage: number | null;
+  highRiskCount: number;
+  totalBudgetAllocated: number;
+  totalBudgetConsumed: number;
+};
+
+export type UcarReportRow = {
+  institutionId: string;
+  institutionShortName: string;
+  institutionName: string;
+  region: string;
+  periodId: string;
+  periodLabel: string;
+  successRate: number | null;
+  attendanceRate: number | null;
+  repetitionRate: number | null;
+  dropoutRate: number | null;
+  abandonmentRate: number | null;
+  employabilityRate: number | null;
+  insertionDelayMonths: number | null;
+  budgetAllocated: number | null;
+  budgetConsumed: number | null;
+  budgetUsage: number | null;
+  costPerStudent: number | null;
+  teachingHeadcount: number | null;
+  adminHeadcount: number | null;
+  absenteeismRate: number | null;
+  publicationsCount: number | null;
+  activeProjects: number | null;
+  fundingSecuredTnd: number | null;
+  classroomOccupancyPct: number | null;
+  equipmentAvailabilityPct: number | null;
+  activeAgreementsCount: number | null;
+  studentMobilityIncoming: number | null;
+  studentMobilityOutgoing: number | null;
+  energyConsumptionIndex: number | null;
+  carbonFootprintIndex: number | null;
+  recyclingRate: number | null;
+  mobilityIndex: number | null;
+  riskScore: number | null;
+  riskLevel: "Low" | "Medium" | "High" | null;
+  riskSummary: string | null;
+};
+
+export type UcarReportResponse = {
+  generatedAt: string;
+  filters: UcarReportFilters;
+  summary: UcarReportSummary;
+  rows: UcarReportRow[];
+};
+
 export type UcarDashboardView = {
   institutions: Institution[];
   academicAverage: number;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { KpiPieChart, KpiRadialGauge } from "../components/charts/KpiCharts";
+import { PeriodSelector } from "../components/layout/AppShell";
 import { AnomalyTable } from "../components/ui/AnomalyTable";
 import { PeriodBadge } from "../components/ui/PeriodBadge";
 import { StatCard } from "../components/ui/StatCard";
@@ -10,10 +11,10 @@ import { fetchUcarDashboard } from "../lib/api";
 import type { UcarDashboardView } from "../types";
 
 const QUICK_LINKS = [
-  { to: "/admin/institutions", label: "All Institutions", desc: "Detailed list", icon: "🏛️" },
-  { to: "/admin/kpi-comparison", label: "KPI Comparison", desc: "Side-by-side charts", icon: "📊" },
-  { to: "/admin/risk-monitoring", label: "Risk Monitoring", desc: "Alerts & predictions", icon: "⚠️" },
-  { to: "/admin/reports", label: "Reports", desc: "Generate UCAR report", icon: "📑" },
+  { to: "/admin/institutions", label: "All Institutions", desc: "Detailed list", icon: "IN" },
+  { to: "/admin/kpi-comparison", label: "KPI Comparison", desc: "Side-by-side charts", icon: "KP" },
+  { to: "/admin/risk-monitoring", label: "Risk Monitoring", desc: "Alerts & predictions", icon: "RM" },
+  { to: "/admin/reports", label: "Reports", desc: "Generate UCAR report", icon: "RP" },
 ];
 
 export function UcarAdminDashboard() {
@@ -74,16 +75,12 @@ export function UcarAdminDashboard() {
     <section className="page">
       <header className="page__header">
         <div>
-          <span className="shell__eyebrow">UCAR Admin</span>
           <h2>UCAR Overview</h2>
-          <p>Headline indicators across {dashboard.institutions.length} institutions.</p>
-          <div style={{ marginTop: 8 }}>
-            <PeriodBadge />
-          </div>
         </div>
-        <button className="primary-button" type="button">
-          Generate UCAR Report
-        </button>
+        <div className="period-context">
+          <PeriodSelector />
+          <PeriodBadge />
+        </div>
       </header>
 
       <div className="stats-grid stats-grid--four">

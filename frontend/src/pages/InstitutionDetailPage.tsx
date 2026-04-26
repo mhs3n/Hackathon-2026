@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { AiAssessmentPanel } from "../components/ui/AiAssessmentPanel";
+import { LinkButton } from "../components/ui/Button";
 import { KpiTrendPanel } from "../components/ui/KpiTrendPanel";
+import { PageHeader } from "../components/ui/PageHeader";
 import { PeriodBadge } from "../components/ui/PeriodBadge";
 import { StatCard } from "../components/ui/StatCard";
 import { fetchInstitutionDashboard } from "../lib/api";
@@ -48,16 +50,13 @@ export function InstitutionDetailPage() {
   if (error) {
     return (
       <section className="page">
-        <header className="page__header">
-          <div>
-            <span className="shell__eyebrow">UCAR Admin</span>
-            <h2>Institution Detail</h2>
-            <p>{error}</p>
-          </div>
-          <Link className="primary-button" to="/admin/institutions">
-            Back to institutions
-          </Link>
-        </header>
+        <PageHeader
+          eyebrow="UCAR Admin"
+          title="Institution Detail"
+          breadcrumbs={[{ label: "UCAR Overview", to: "/admin/dashboard" }, { label: "All Institutions", to: "/admin/institutions" }, { label: "Detail" }]}
+          description={error}
+          actions={<LinkButton to="/admin/institutions">Back to institutions</LinkButton>}
+        />
       </section>
     );
   }
@@ -65,13 +64,12 @@ export function InstitutionDetailPage() {
   if (!dashboard) {
     return (
       <section className="page">
-        <header className="page__header">
-          <div>
-            <span className="shell__eyebrow">UCAR Admin</span>
-            <h2>Institution Detail</h2>
-            <p>Loading institution KPIs…</p>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow="UCAR Admin"
+          title="Institution Detail"
+          breadcrumbs={[{ label: "UCAR Overview", to: "/admin/dashboard" }, { label: "All Institutions", to: "/admin/institutions" }, { label: "Detail" }]}
+          description="Loading institution KPIs..."
+        />
       </section>
     );
   }
@@ -83,21 +81,21 @@ export function InstitutionDetailPage() {
 
   return (
     <section className="page">
-      <header className="page__header">
-        <div>
-          <span className="shell__eyebrow">UCAR Admin</span>
-          <h2>{institution.name}</h2>
-          <p>
-            {institution.shortName} · {institution.region} · detailed KPI and risk overview for the selected period.
-          </p>
-          <div style={{ marginTop: 8 }}>
-            <PeriodBadge />
-          </div>
+      <PageHeader
+        eyebrow="UCAR Admin"
+        title={institution.name}
+        breadcrumbs={[
+          { label: "UCAR Overview", to: "/admin/dashboard" },
+          { label: "All Institutions", to: "/admin/institutions" },
+          { label: institution.shortName },
+        ]}
+        description={`${institution.shortName} · ${institution.region} · detailed KPI and risk overview for the selected period.`}
+        actions={<LinkButton to="/admin/institutions">Back to institutions</LinkButton>}
+      >
+        <div style={{ marginTop: 8 }}>
+          <PeriodBadge />
         </div>
-        <Link className="primary-button" to="/admin/institutions">
-          Back to institutions
-        </Link>
-      </header>
+      </PageHeader>
 
       <div className="stats-grid stats-grid--four">
         <StatCard label="Success Rate" value={`${academic.successRate}%`} helper="Academic performance." accent="green" />

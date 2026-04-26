@@ -8,12 +8,12 @@ import {
   type ReactNode,
 } from "react";
 
-import type { DemoUser, UserRole } from "../types";
-import { clearStoredAuth, getStoredAuth, loginByRole, setStoredAuth } from "../lib/api";
+import type { DemoUser } from "../types";
+import { clearStoredAuth, getStoredAuth, loginWithCredentials, setStoredAuth } from "../lib/api";
 
 type AuthContextValue = {
   user: DemoUser | null;
-  login: (role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<DemoUser>;
   logout: () => void;
   isAuthenticating: boolean;
   authError: string | null;
@@ -33,13 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (role: UserRole) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsAuthenticating(true);
     setAuthError(null);
     try {
-      const payload = await loginByRole(role);
+      const payload = await loginWithCredentials(email, password);
       setStoredAuth(payload);
       setUser(payload.user);
+      return payload.user;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
       setAuthError(message);

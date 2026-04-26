@@ -8,13 +8,13 @@ import { StatCard } from "../components/ui/StatCard";
 import { useInstitutionDashboard } from "../lib/useInstitutionDashboard";
 
 const KPI_LINKS = [
-  { to: "/institution/kpi/academic", label: "Academic", desc: "Success, attendance, dropout", icon: "🎓" },
-  { to: "/institution/kpi/insertion", label: "Insertion", desc: "Employability & conventions", icon: "💼" },
-  { to: "/institution/kpi/finance", label: "Finance", desc: "Budget execution & cost", icon: "💰" },
-  { to: "/institution/kpi/hr", label: "HR", desc: "Staff & stability", icon: "👥" },
-  { to: "/institution/kpi/research", label: "Research", desc: "Publications & projects", icon: "🔬" },
-  { to: "/institution/kpi/infrastructure", label: "Infrastructure", desc: "Facilities & equipment", icon: "🏛️" },
-  { to: "/institution/kpi/partnership", label: "Partnerships", desc: "Mobility & agreements", icon: "🤝" },
+  { to: "/institution/kpi/academic", label: "Academic", desc: "Success, attendance, dropout", icon: "AC" },
+  { to: "/institution/kpi/insertion", label: "Insertion", desc: "Employability & conventions", icon: "IN" },
+  { to: "/institution/kpi/finance", label: "Finance", desc: "Budget execution & cost", icon: "FI" },
+  { to: "/institution/kpi/hr", label: "HR", desc: "Staff & stability", icon: "HR" },
+  { to: "/institution/kpi/research", label: "Research", desc: "Publications & projects", icon: "RS" },
+  { to: "/institution/kpi/infrastructure", label: "Infrastructure", desc: "Facilities & equipment", icon: "IF" },
+  { to: "/institution/kpi/partnership", label: "Partnerships", desc: "Mobility & agreements", icon: "PT" },
 ];
 
 export function InstitutionDashboard() {
