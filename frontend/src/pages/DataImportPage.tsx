@@ -21,19 +21,70 @@ const KPI_DOMAIN_LABEL: Record<string, string> = {
   academic: "Academic KPIs",
   finance: "Finance KPIs",
   esg: "ESG / Energy & Carbon",
+  hr: "Human Resources",
+  research: "Research & Innovation",
+  infrastructure: "Infrastructure",
+  partnership: "Partnerships & Mobility",
+  insertion: "Graduate Insertion",
 };
 
+const DOMAIN_ORDER = [
+  "academic",
+  "finance",
+  "esg",
+  "hr",
+  "research",
+  "infrastructure",
+  "partnership",
+  "insertion",
+] as const;
+
 const FIELD_LABEL: Record<string, string> = {
+  // academic
   success_rate: "Success rate (%)",
   attendance_rate: "Attendance rate (%)",
   dropout_rate: "Dropout rate (%)",
   abandonment_rate: "Abandonment rate (%)",
   repetition_rate: "Repetition rate (%)",
+  // finance
   budget_allocated: "Budget allocated (TND)",
   budget_consumed: "Budget consumed (TND)",
   cost_per_student: "Cost per student (TND)",
+  // esg
   energy_consumption_index: "Energy consumption index",
   carbon_footprint_index: "Carbon footprint index",
+  recycling_rate: "Recycling rate (%)",
+  mobility_index: "Mobility index",
+  // hr
+  teaching_headcount: "Teaching headcount",
+  admin_headcount: "Admin headcount",
+  absenteeism_rate: "Absenteeism rate (%)",
+  training_completed_pct: "Training completed (%)",
+  teaching_load_hours: "Teaching load (hours)",
+  team_stability_index: "Team stability index",
+  // research
+  publications_count: "Publications",
+  active_projects: "Active projects",
+  funding_secured_tnd: "Funding secured (TND)",
+  academic_partnerships: "Academic partnerships",
+  patents_filed: "Patents filed",
+  // infrastructure
+  classroom_occupancy_pct: "Classroom occupancy (%)",
+  equipment_availability_pct: "Equipment availability (%)",
+  it_equipment_status: "IT equipment status",
+  ongoing_projects_count: "Ongoing projects",
+  maintenance_backlog_days: "Maintenance backlog (days)",
+  // partnership
+  active_agreements_count: "Active agreements",
+  student_mobility_incoming: "Mobility — incoming",
+  student_mobility_outgoing: "Mobility — outgoing",
+  international_projects: "International projects",
+  academic_networks_count: "Academic networks",
+  // insertion
+  national_convention_rate: "National conventions (%)",
+  international_convention_rate: "International conventions (%)",
+  employability_rate: "Employability rate (%)",
+  insertion_delay_months: "Insertion delay (months)",
 };
 
 type HistorySortKey = "importedAt" | "institution" | "period" | "sourceFile" | "fileType";
@@ -312,35 +363,62 @@ export function DataImportPage() {
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-              {(["academic", "finance", "esg"] as const).map((domain) => {
-                const fields = editedMapped[domain] ?? {};
-                const entries = Object.entries(fields);
-                if (entries.length === 0) {
+              {(() => {
+                const allDomains = Array.from(
+                  new Set([
+                    ...DOMAIN_ORDER,
+                    ...Object.keys(editedMapped as Record<string, unknown>),
+                  ]),
+                );
+                const visible = allDomains.filter((dom) => {
+                  const fields = (editedMapped as Record<string, Record<string, number>>)[dom];
+                  return fields && Object.keys(fields).length > 0;
+                });
+                if (visible.length === 0) {
                   return (
-                    <div key={domain} style={domainCardStyle}>
-                      <div style={domainTitle}>{KPI_DOMAIN_LABEL[domain]}</div>
-                      <div style={{ color: "var(--muted)", fontSize: 12.5 }}>No values extracted.</div>
+                    <div style={domainCardStyle}>
+                      <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                        No KPIs extracted from this document.
+                      </div>
                     </div>
                   );
                 }
-                return (
-                  <div key={domain} style={domainCardStyle}>
-                    <div style={domainTitle}>{KPI_DOMAIN_LABEL[domain]}</div>
-                    {entries.map(([field, value]) => (
-                      <div key={field} style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                        <label style={{ fontSize: 12.5, color: "#3d4f63" }}>{FIELD_LABEL[field] ?? field}</label>
-                        <input
-                          className="form-input form-input--number"
-                          type="number"
-                          step="any"
-                          value={value}
-                          onChange={(e) => updateField(domain, field, e.target.value)}
-                        />
+                return visible.map((domain) => {
+                  const fields =
+                    (editedMapped as Record<string, Record<string, number>>)[domain] ?? {};
+                  const entries = Object.entries(fields);
+                  return (
+                    <div key={domain} style={domainCardStyle}>
+                      <div style={domainTitle}>
+                        {KPI_DOMAIN_LABEL[domain] ?? domain}
                       </div>
-                    ))}
-                  </div>
-                );
-              })}
+                      {entries.map(([field, value]) => (
+                        <div
+                          key={field}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 110px",
+                            gap: 8,
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <label style={{ fontSize: 12.5, color: "#3d4f63" }}>
+                            {FIELD_LABEL[field] ?? field}
+                          </label>
+                          <input
+                            className="form-input form-input--number"
+                            type="number"
+                            step="any"
+                            value={value}
+                            onChange={(e) => updateField(domain, field, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 16, justifyContent: "flex-end" }}>
