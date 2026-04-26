@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "../components/ui/Button";
@@ -105,7 +105,66 @@ export function DataImportPage() {
   const [historyQuery, setHistoryQuery] = useState("");
   const [historySortKey, setHistorySortKey] = useState<HistorySortKey>("importedAt");
   const [historySortDirection, setHistorySortDirection] = useState<"desc" | "asc">("desc");
+  const [isDragging, setIsDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const acceptedExt = [".xlsx", ".xls", ".csv", ".pdf", ".png", ".jpg", ".jpeg"];
+
+  const isAcceptedFile = (f: File) => {
+    const lower = f.name.toLowerCase();
+    return acceptedExt.some((ext) => lower.endsWith(ext));
+  };
+
+  const onPickFile = (f: File | null) => {
+    if (!f) return;
+    if (!isAcceptedFile(f)) {
+      setError(`Unsupported file type. Accepted: ${acceptedExt.join(", ")}`);
+      setStatus("error");
+      return;
+    }
+    setError(null);
+    setStatus("idle");
+    setFile(f);
+  };
+
+  const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // only clear when leaving the dropzone itself
+    if ((e.target as HTMLElement) === e.currentTarget) setIsDragging(false);
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const dropped = e.dataTransfer.files?.[0] ?? null;
+    onPickFile(dropped);
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const fileExtIcon = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.endsWith(".pdf")) return "PDF";
+    if (lower.endsWith(".csv")) return "CSV";
+    if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return "XLS";
+    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "IMG";
+    return "FILE";
+  };
 
   // Load institution list (only UCAR admin sees the dropdown)
   useEffect(() => {
@@ -281,15 +340,13 @@ export function DataImportPage() {
       <section className="panel">
         <div className="panel__header">
           <h3>1. Select institution and file</h3>
-          <span>Supported: .xlsx, .xls, .csv, .pdf</span>
+          <span>Supported: .xlsx, .xls, .csv, .pdf, .png, .jpg</span>
         </div>
-        <div className="form-grid">
+
+        <div style={topGridStyle}>
           <Field label="Institution">
             {user?.role === "ucar_admin" ? (
-              <SelectInput
-                value={institutionId}
-                onChange={(e) => setInstitutionId(e.target.value)}
-              >
+              <SelectInput value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
                 {institutions.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.shortName} - {i.name}
@@ -301,10 +358,7 @@ export function DataImportPage() {
             )}
           </Field>
           <Field label="Reporting period">
-            <SelectInput
-              value={periodId}
-              onChange={(e) => setPeriodId(e.target.value)}
-            >
+            <SelectInput value={periodId} onChange={(e) => setPeriodId(e.target.value)}>
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
@@ -312,14 +366,114 @@ export function DataImportPage() {
               ))}
             </SelectInput>
           </Field>
-          <Field label="File">
-            <TextInput
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </Field>
+        </div>
+
+        <div
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onClick={() => fileRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileRef.current?.click();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Drop a file here or click to browse"
+          style={{
+            ...dropzoneStyle,
+            ...(isDragging ? dropzoneActiveStyle : null),
+            ...(file ? dropzoneFilledStyle : null),
+          }}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg"
+            onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            style={{ display: "none" }}
+          />
+
+          {!file ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <div style={dropIconWrap}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v12" />
+                  <path d="m7 8 5-5 5 5" />
+                  <path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#13263b" }}>
+                {isDragging ? "Drop the file to upload" : "Drag & drop your file here"}
+              </div>
+              <div style={{ fontSize: 13, color: "#5b6878" }}>
+                or <span style={{ color: "#1d63d1", fontWeight: 600 }}>click to browse</span> from your computer
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 4 }}>
+                {acceptedExt.map((ext) => (
+                  <span key={ext} style={extChip}>{ext}</span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 14, width: "100%" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={fileBadge}>{fileExtIcon(file.name)}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color: "#13263b",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={file.name}
+                >
+                  {file.name}
+                </div>
+                <div style={{ fontSize: 12, color: "#5b6878", marginTop: 2 }}>
+                  {formatBytes(file.size)} · {file.type || "unknown"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+                style={removeBtn}
+                aria-label="Remove file"
+                title="Remove file"
+              >
+                ×
+              </button>
+              <Button
+                onClick={(e) => {
+                  e?.stopPropagation();
+                  fileRef.current?.click();
+                }}
+                variant="secondary"
+              >
+                Replace
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12.5, color: "#5b6878" }}>
+            {file
+              ? "Ready to extract. The AI pipeline will map your columns to KPI fields."
+              : "Tip: French headers, mixed cases, and scanned PDFs are all supported."}
+          </div>
           <Button
             onClick={onUpload}
             disabled={!file || !institutionId || status === "uploading"}
@@ -327,6 +481,7 @@ export function DataImportPage() {
             {status === "uploading" ? "Extracting..." : "Extract KPIs"}
           </Button>
         </div>
+
         {error && (
           <div style={{ marginTop: 12 }}>
             <StatusBanner tone="danger" title="Import error">{error}</StatusBanner>
@@ -526,18 +681,104 @@ export function DataImportPage() {
   );
 }
 
-const domainCardStyle: React.CSSProperties = {
+const domainCardStyle: CSSProperties = {
   background: "#fcfdfe",
   border: "1px solid #e3eaf3",
   borderRadius: 10,
   padding: 14,
 };
 
-const domainTitle: React.CSSProperties = {
+const domainTitle: CSSProperties = {
   fontWeight: 600,
   fontSize: 13,
   color: "#13263b",
   marginBottom: 10,
   paddingBottom: 6,
   borderBottom: "1px solid #eef2f7",
+};
+
+const topGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: 16,
+  marginBottom: 18,
+};
+
+const dropzoneStyle: CSSProperties = {
+  border: "2px dashed #c9d4e3",
+  borderRadius: 14,
+  background: "linear-gradient(180deg, #fbfdff 0%, #f5f8fc 100%)",
+  padding: "28px 22px",
+  minHeight: 180,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  transition: "border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease",
+  outline: "none",
+};
+
+const dropzoneActiveStyle: CSSProperties = {
+  borderColor: "#1d63d1",
+  background: "linear-gradient(180deg, #eef5ff 0%, #e2ecff 100%)",
+  boxShadow: "0 0 0 4px rgba(29, 99, 209, 0.12)",
+};
+
+const dropzoneFilledStyle: CSSProperties = {
+  borderStyle: "solid",
+  borderColor: "#cfdcec",
+  background: "#ffffff",
+  cursor: "default",
+  padding: "18px 18px",
+  minHeight: 0,
+};
+
+const dropIconWrap: CSSProperties = {
+  width: 56,
+  height: 56,
+  borderRadius: "50%",
+  background: "rgba(29, 99, 209, 0.1)",
+  color: "#1d63d1",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const extChip: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 600,
+  letterSpacing: 0.3,
+  padding: "3px 8px",
+  borderRadius: 999,
+  background: "#eef2f8",
+  color: "#3d4f63",
+  textTransform: "uppercase",
+};
+
+const fileBadge: CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: 10,
+  background: "#1d63d1",
+  color: "#fff",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.5,
+  flexShrink: 0,
+};
+
+const removeBtn: CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: "50%",
+  border: "1px solid #e3eaf3",
+  background: "#fff",
+  color: "#5b6878",
+  fontSize: 18,
+  lineHeight: 1,
+  cursor: "pointer",
+  flexShrink: 0,
 };

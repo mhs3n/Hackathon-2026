@@ -1,8 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./auth/AuthContext";
-import { AppShell } from "./components/layout/AppShell";
+import { AppShell, type SidebarItem } from "./components/layout/AppShell";
 import { DataImportPage } from "./pages/DataImportPage";
+import { InstitutionStudentsLevelPage } from "./pages/InstitutionStudentsLevelPage";
+import { InstitutionRiskListPage } from "./pages/InstitutionRiskListPage";
+import { InstitutionReportPage } from "./pages/InstitutionReportPage";
+import { StudentReportPage } from "./pages/student/StudentReportPage";
+import { isStudentsPanelEnabled } from "./lib/institutionStudentsMock";
 import { FutureModulePage } from "./pages/FutureModulePage";
 import { InstitutionDetailPage } from "./pages/InstitutionDetailPage";
 import { InstitutionDashboard } from "./pages/InstitutionDashboard";
@@ -38,6 +43,50 @@ function AuthHomeRedirect() {
     return <Navigate to="/login" replace />;
   }
   return <Navigate to={getHomePath(user.role)} replace />;
+}
+
+function InstitutionAppShell() {
+  const { user } = useAuth();
+  const showStudents = isStudentsPanelEnabled(user?.institutionId);
+
+  const items: SidebarItem[] = [
+    { to: "/institution/dashboard", label: "Institution Dashboard", icon: "dashboard" },
+    {
+      label: "KPI Monitoring",
+      icon: "monitoring",
+      children: [
+        { to: "/institution/kpi/academic", label: "Academic", icon: "academic" },
+        { to: "/institution/kpi/insertion", label: "Insertion", icon: "insertion" },
+        { to: "/institution/kpi/finance", label: "Finance", icon: "finance" },
+        { to: "/institution/kpi/hr", label: "Human Resources", icon: "hr" },
+        { to: "/institution/kpi/research", label: "Research", icon: "research" },
+        { to: "/institution/kpi/infrastructure", label: "Infrastructure", icon: "infrastructure" },
+        { to: "/institution/kpi/partnership", label: "Partnerships", icon: "partnership" },
+      ],
+    },
+    { to: "/institution/iso", label: "ISO Certifications", icon: "iso" },
+    { to: "/institution/data-import", label: "Data Import", icon: "import" },
+  ];
+
+  if (showStudents) {
+    items.push({
+      label: "Students",
+      icon: "hr",
+      children: [
+        { to: "/institution/students/first-grade", label: "First grade", icon: "academic" },
+        { to: "/institution/students/second-grade", label: "Second grade", icon: "academic" },
+        { to: "/institution/students/third-grade", label: "Third grade", icon: "academic" },
+        { to: "/institution/students/master-degree", label: "Master degree", icon: "academic" },
+      ],
+    });
+  }
+
+  items.push(
+    { to: "/institution/student-risk-list", label: "Student Risk List", icon: "risk" },
+    { to: "/institution/report", label: "Generate Institution Report", icon: "reports" },
+  );
+
+  return <AppShell items={items} />;
 }
 
 export default function App() {
@@ -91,35 +140,10 @@ export default function App() {
         </Route>
 
         <Route element={<RequireRole role="institution_admin" />}>
-          <Route
-            path="/institution"
-            element={
-              <AppShell
-                items={[
-                  { to: "/institution/dashboard", label: "Institution Dashboard", icon: "dashboard" },
-                  {
-                    label: "KPI Monitoring",
-                    icon: "monitoring",
-                    children: [
-                      { to: "/institution/kpi/academic", label: "Academic", icon: "academic" },
-                      { to: "/institution/kpi/insertion", label: "Insertion", icon: "insertion" },
-                      { to: "/institution/kpi/finance", label: "Finance", icon: "finance" },
-                      { to: "/institution/kpi/hr", label: "Human Resources", icon: "hr" },
-                      { to: "/institution/kpi/research", label: "Research", icon: "research" },
-                      { to: "/institution/kpi/infrastructure", label: "Infrastructure", icon: "infrastructure" },
-                      { to: "/institution/kpi/partnership", label: "Partnerships", icon: "partnership" },
-                    ],
-                  },
-                  { to: "/institution/iso", label: "ISO Certifications", icon: "iso" },
-                  { to: "/institution/data-import", label: "Data Import", icon: "import" },
-                  { to: "/institution/student-risk-list", label: "Student Risk List", icon: "risk", future: true },
-                  { to: "/institution/report", label: "Generate Institution Report", icon: "reports" },
-                ]}
-              />
-            }
-          >
+          <Route path="/institution" element={<InstitutionAppShell />}>
             <Route path="dashboard" element={<InstitutionDashboard />} />
             <Route path="data-import" element={<DataImportPage />} />
+            <Route path="students/:levelSlug" element={<InstitutionStudentsLevelPage />} />
             <Route path="kpi/academic" element={<AcademicKpiPage />} />
             <Route path="kpi/insertion" element={<InsertionKpiPage />} />
             <Route path="kpi/finance" element={<FinanceKpiPage />} />
@@ -128,29 +152,8 @@ export default function App() {
             <Route path="kpi/infrastructure" element={<InfrastructureKpiPage />} />
             <Route path="kpi/partnership" element={<PartnershipKpiPage />} />
             <Route path="iso" element={<InstitutionIsoPage />} />
-            <Route
-              path="student-risk-list"
-              element={
-                <FutureModulePage
-                  title="Student Risk List"
-                  description="Intervention workspace for monitoring and following up on at-risk students."
-                  bullets={[
-                    "Rank students by risk score and urgency.",
-                    "Inspect explainable AI reasons behind the alert.",
-                    "Prepare exportable follow-up and intervention lists.",
-                  ]}
-                />
-              }
-            />
-            <Route
-              path="report"
-              element={
-                <ReportsPage
-                  title="Generate Institution Report"
-                  description="A local reporting surface for institution management and intervention follow-up."
-                />
-              }
-            />
+            <Route path="student-risk-list" element={<InstitutionRiskListPage />} />
+            <Route path="report" element={<InstitutionReportPage />} />
           </Route>
         </Route>
 
@@ -189,15 +192,7 @@ export default function App() {
             <Route path="kpi/skills" element={<StudentSkillsKpiPage />} />
             <Route path="ai-guidance" element={<AiGuidancePage />} />
             <Route path="certificate" element={<RegistrationCertificatePage />} />
-            <Route
-              path="report"
-              element={
-                <ReportsPage
-                  title="Generate My Report"
-                  description="Export a personal performance report covering grades, attendance, engagement, wellness, and AI guidance."
-                />
-              }
-            />
+            <Route path="report" element={<StudentReportPage />} />
           </Route>
         </Route>
       </Route>

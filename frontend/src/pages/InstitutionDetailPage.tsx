@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import { AiAssessmentPanel } from "../components/ui/AiAssessmentPanel";
 import { LinkButton } from "../components/ui/Button";
+import { InstitutionStudentsPanel } from "../components/ui/InstitutionStudentsPanel";
 import { KpiTrendPanel } from "../components/ui/KpiTrendPanel";
 import { PageHeader } from "../components/ui/PageHeader";
 import { PeriodBadge } from "../components/ui/PeriodBadge";
@@ -187,6 +188,11 @@ export function InstitutionDetailPage() {
             {partnership && <li><span>International projects</span><strong>{formatNumber(partnership.internationalProjects)}</strong></li>}
           </ul>
         </section>
+
+        <InstitutionStudentsPanel
+          institutionId={institution.id}
+          institutionShortName={institution.shortName}
+        />
 
         <section className="panel">
           <div className="panel__header">

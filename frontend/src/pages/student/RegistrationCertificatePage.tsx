@@ -1,8 +1,10 @@
 import { Fragment, useMemo } from "react";
+import jsPDF from "jspdf";
 
 import { useAuth } from "../../auth/AuthContext";
-import { deriveRegistrationMock } from "../../lib/studentMockProfile";
+import { deriveRegistrationMock, type StudentRegistrationMock } from "../../lib/studentMockProfile";
 import { useStudentSnapshot } from "../../lib/useStudentSnapshot";
+import type { StudentSnapshot } from "../../types";
 
 const PRINT_STYLE_ID = "ucar-cert-print-style";
 
@@ -45,6 +47,175 @@ function certificateNumber(studentCode: string | null | undefined, year: string 
   const code = studentCode ?? "STUDENT";
   const yr = (year ?? new Date().getFullYear().toString()).replace(/[^0-9]/g, "").slice(0, 4) || String(new Date().getFullYear());
   return `UCAR/${yr}/${code}`;
+}
+
+function downloadCertificatePdf(args: {
+  snapshot: StudentSnapshot;
+  reg: StudentRegistrationMock;
+  yearLabel: string;
+  registrationDateLabel: string;
+  issueDate: string;
+  certNo: string;
+}) {
+  const { snapshot, reg, yearLabel, registrationDateLabel, issueDate, certNo } = args;
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = 210;
+  const marginX = 20;
+  const contentWidth = pageWidth - marginX * 2;
+
+  // Header band
+  doc.setFillColor(29, 83, 148);
+  doc.rect(0, 0, pageWidth, 6, "F");
+
+  // Top header text
+  doc.setTextColor(96, 117, 138);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(
+    "REPUBLIQUE TUNISIENNE - MINISTERE DE L'ENSEIGNEMENT SUPERIEUR",
+    marginX,
+    16,
+  );
+
+  doc.setTextColor(19, 38, 59);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("University of Carthage", marginX, 24);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(61, 79, 99);
+  const instLine = `${snapshot.institutionName}${snapshot.institutionRegion ? ` - ${snapshot.institutionRegion}` : ""}`;
+  doc.text(instLine, marginX, 30);
+
+  // Right side: cert number & issue date
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(96, 117, 138);
+  doc.text(`No ${certNo}`, pageWidth - marginX, 22, { align: "right" });
+  doc.text(`Issued: ${issueDate}`, pageWidth - marginX, 27, { align: "right" });
+
+  // Divider
+  doc.setDrawColor(29, 83, 148);
+  doc.setLineWidth(0.6);
+  doc.line(marginX, 35, pageWidth - marginX, 35);
+
+  // Title
+  doc.setTextColor(29, 83, 148);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.text("ATTESTATION D'INSCRIPTION", pageWidth / 2, 50, { align: "center" });
+  doc.setFontSize(11);
+  doc.setTextColor(96, 117, 138);
+  doc.text("Certificate of Registration", pageWidth / 2, 57, { align: "center" });
+
+  // Body
+  doc.setTextColor(19, 38, 59);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  const bodyText =
+    `The Director of ${snapshot.institutionName} (University of Carthage) certifies that the ` +
+    `student identified below is regularly registered at this institution for the academic year ${yearLabel}.`;
+  const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
+  doc.text(bodyLines, marginX, 70);
+
+  // Identity card
+  const rows: Array<[string, string]> = [
+    ["Full name", snapshot.studentName],
+    ["Sex", reg.sex === "F" ? "Female" : "Male"],
+    ["Date of birth", reg.dateOfBirth],
+    ["Place of birth", reg.placeOfBirth],
+    ["Nationality", reg.nationality],
+    ["National ID (CIN)", reg.cin],
+    ["Address", reg.address],
+    ["Student code", reg.studentCode],
+    ["Specialty", "SIC"],
+    ["Level", reg.level],
+    ["Institution", snapshot.institutionName],
+    ["University", "University of Carthage"],
+    ["Academic year", yearLabel],
+    ["Registration date", registrationDateLabel],
+  ];
+
+  const cardTop = 84;
+  const rowHeight = 7;
+  const cardHeight = rows.length * rowHeight + 6;
+  doc.setFillColor(247, 250, 253);
+  doc.setDrawColor(227, 234, 243);
+  doc.roundedRect(marginX, cardTop, contentWidth, cardHeight, 2, 2, "FD");
+
+  doc.setFontSize(10);
+  rows.forEach(([label, value], idx) => {
+    const y = cardTop + 8 + idx * rowHeight;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(96, 117, 138);
+    doc.text(label, marginX + 4, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(19, 38, 59);
+    doc.text(String(value ?? "-"), marginX + 60, y);
+  });
+
+  // Footer text
+  const afterCardY = cardTop + cardHeight + 12;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(10);
+  doc.setTextColor(61, 79, 99);
+  doc.text(
+    "This certificate is issued at the request of the concerned party to serve any legal purpose.",
+    marginX,
+    afterCardY,
+  );
+
+  // Signature block
+  const sigY = afterCardY + 28;
+  doc.setDrawColor(200, 213, 227);
+  doc.setLineDashPattern([1, 1], 0);
+  doc.line(marginX, sigY - 12, pageWidth - marginX, sigY - 12);
+  doc.setLineDashPattern([], 0);
+
+  // Verification code (left)
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(96, 117, 138);
+  doc.text("Verification code:", marginX, sigY - 5);
+  doc.setFont("courier", "normal");
+  doc.setTextColor(19, 38, 59);
+  doc.text(certNo.replace(/\//g, "-"), marginX, sigY);
+
+  // Signature (right)
+  const sigRightX = pageWidth - marginX;
+  doc.setDrawColor(19, 38, 59);
+  doc.setLineWidth(0.4);
+  doc.line(sigRightX - 60, sigY - 4, sigRightX, sigY - 4);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(19, 38, 59);
+  doc.text(reg.directorName, sigRightX, sigY + 2, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(61, 79, 99);
+  doc.text(
+    `Director - ${snapshot.institutionShortName ?? snapshot.institutionName}`,
+    sigRightX,
+    sigY + 7,
+    { align: "right" },
+  );
+  doc.setTextColor(154, 167, 182);
+  doc.text("Signature & official stamp", sigRightX, sigY + 12, { align: "right" });
+
+  // Bottom note
+  doc.setFontSize(8);
+  doc.setTextColor(154, 167, 182);
+  doc.text(
+    `UCAR Insight Platform - Generated electronically on ${issueDate}`,
+    pageWidth / 2,
+    287,
+    { align: "center" },
+  );
+
+  const safeCode = (snapshot.studentCode ?? "student").replace(/[^a-z0-9_-]/gi, "_");
+  doc.save(`registration-certificate-${safeCode}.pdf`);
 }
 
 export function RegistrationCertificatePage() {
@@ -106,9 +277,18 @@ export function RegistrationCertificatePage() {
         <button
           type="button"
           className="primary-button"
-          onClick={() => window.print()}
+          onClick={() =>
+            downloadCertificatePdf({
+              snapshot,
+              reg,
+              yearLabel,
+              registrationDateLabel,
+              issueDate,
+              certNo,
+            })
+          }
         >
-          Download / Print PDF
+          Download PDF
         </button>
       </header>
 
